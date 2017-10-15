@@ -10,13 +10,6 @@ doc = false
 test = false
 bench = false
 
-[[bin]]
-name = "bitbar"
-path = "src/bin/bitbar.rs"
-doc = false
-test = false
-bench = false
-
 [lib]
 name = "peter"
 path = "src/lib.rs"
