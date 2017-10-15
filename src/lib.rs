@@ -6,6 +6,7 @@
 #![forbid(unused_extern_crates, unused_import_braces)]
 
 extern crate serenity;
+extern crate typemap;
 
 pub mod bitbar;
 
