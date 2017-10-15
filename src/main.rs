@@ -55,8 +55,15 @@ impl EventHandler for Handler {
         let user = voice_state.user_id.get().expect("failed to get user info");
         let mut data = ctxt.data.lock();
         let chan_map = data.get_mut::<bitbar::VoiceStates>().expect("missing voice states map");
-        for users in chan_map.values_mut() { //TODO `&mut chan_map`
+        let mut empty_channels = Vec::default();
+        for (channel_name, users) in chan_map.iter_mut() {
             users.retain(|iter_user| iter_user.id != user.id);
+            if users.is_empty() {
+                empty_channels.push(channel_name.to_owned());
+            }
+        }
+        for channel_name in empty_channels {
+            chan_map.remove(&channel_name);
         }
         if let Some(channel_id) = voice_state.channel_id {
             let users = chan_map.entry(channel_id.name().expect("failed to get channel name"))
