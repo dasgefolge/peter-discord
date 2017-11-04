@@ -1,16 +1,18 @@
 #![warn(trivial_casts)]
-#![forbid(unused, unused_extern_crates, unused_import_braces)]
+#![deny(unused)]
+#![forbid(unused_extern_crates, unused_import_braces)]
 
 extern crate peter;
 extern crate serenity;
 extern crate typemap;
 
 use std::process;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use peter::bitbar;
 
 use serenity::prelude::*;
+use serenity::framework::StandardFramework;
 use serenity::model::{Guild, GuildId, Permissions, Ready, VoiceState};
 
 use typemap::Key;
@@ -83,5 +85,23 @@ fn main() {
         let mut data = client.data.lock();
         data.insert::<bitbar::VoiceStates>(BTreeMap::default());
     }
+    let owners = {
+        let mut owners = HashSet::default();
+        owners.insert(serenity::http::get_current_application_info().expect("couldn't get application info").owner.id);
+        owners
+    };
+    client.with_framework(StandardFramework::new()
+        .configure(|c| c
+            .allow_whitespace(true) // allow ! command
+            .case_insensitivity(true) // allow !Command
+            .on_mention(true) // allow @peter command
+            .owners(owners)
+            .prefix("!") // allow !command
+        )
+        .on("ping", |_, msg, _| {
+            msg.channel_id.say("pong")?;
+            Ok(())
+        })
+    );
     client.start().expect("client error");
 }
