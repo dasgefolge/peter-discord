@@ -15,5 +15,6 @@ name = "peter"
 path = "src/lib.rs"
 
 [dependencies]
+rand = "*"
 serenity = "*"
 typemap = "*"

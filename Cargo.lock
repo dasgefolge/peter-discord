@@ -2,6 +2,7 @@
 name = "peter"
 version = "0.1.0"
 dependencies = [
+ "rand 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "serenity 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
