@@ -3,14 +3,11 @@
 #![forbid(unused_extern_crates, unused_import_braces)]
 
 extern crate peter;
-extern crate rand;
 extern crate serenity;
 extern crate typemap;
 
 use std::process;
 use std::collections::{BTreeMap, HashSet};
-
-use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
 use serenity::framework::StandardFramework;
@@ -18,7 +15,7 @@ use serenity::model::{Guild, GuildId, Permissions, Ready, VoiceState};
 
 use typemap::Key;
 
-use peter::bitbar;
+use peter::{bitbar, commands};
 
 struct Handler;
 
@@ -101,15 +98,11 @@ fn main() {
             .owners(owners)
             .prefix("!") // allow !command
         )
-        .on("ping", |_, msg, _| {
-            let mut rng = thread_rng();
-            msg.channel_id.say(if rng.gen_weighted_bool(1024) {
-                format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5))) // PINGCEPTION
-            } else {
-                "pong".to_owned()
-            })?;
-            Ok(())
-        })
+        .on("ping", commands::ping)
+        .command("quit", |c| c
+            .exec(commands::quit)
+            .owners_only(true)
+        )
     );
     client.start().expect("client error");
 }
