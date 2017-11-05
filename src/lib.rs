@@ -5,12 +5,15 @@
 #![deny(unused, missing_docs, unused_qualifications)]
 #![forbid(unused_extern_crates, unused_import_braces)]
 
+#[macro_use] extern crate lazy_static;
 extern crate rand;
+extern crate regex;
 extern crate serenity;
 extern crate typemap;
 
 pub mod bitbar;
 pub mod commands;
+pub mod emoji;
 
 /// The token for the Peter bot user.
 pub const TOKEN: &str = "MzY1OTM2NDkzNTM5MjI5Njk5.DMUAVw.JteeTwsjbHOtNAHdMGXQJllCK6k";

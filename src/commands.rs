@@ -15,10 +15,12 @@ pub fn ping(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError>
     Ok(())
 }
 
-//pub fn poll(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
-//    unimplemented!(); //TODO
-//    Ok(())
-//}
+pub fn poll(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
+    for emoji in ::emoji::Iter::new(msg.content.to_owned())? {
+        msg.react(emoji)?;
+    }
+    Ok(())
+}
 
 pub fn quit(ctx: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
     ctx.quit()?;
