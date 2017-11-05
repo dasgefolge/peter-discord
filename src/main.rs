@@ -99,7 +99,7 @@ fn main() {
             .prefix("!") // allow !command
         )
         .on("ping", commands::ping)
-        //.on("poll", commands::poll) //TODO
+        .on("poll", commands::poll)
         .command("quit", |c| c
             .exec(commands::quit)
             .owners_only(true)
