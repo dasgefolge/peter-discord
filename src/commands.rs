@@ -26,6 +26,6 @@ pub fn quit(ctx: &mut Context, _: &Message, _: Args) -> Result<(), CommandError>
 }
 
 pub fn test(&mut _: &mut Context, msg: &Message, args: Args) -> Result<(), CommandError> {
-    println!("test(&mut _, &{:?}, {:?})", *msg, args);
+    println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
     Ok(())
 }
