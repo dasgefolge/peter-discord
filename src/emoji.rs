@@ -95,6 +95,12 @@ impl Iterator for Iter {
     }
 }
 
+/// Given a number in `0..26`, returns the regional indicator emoji corresponding to the letter in this position of the alphabet.
+pub fn nth_letter(n: u8) -> ReactionType {
+    if n >= 26 { panic!("letter not in range"); }
+    ReactionType::Unicode(::std::char::from_u32('🇦' as u32 + n as u32).expect("failed to create regional indicator").to_string())
+}
+
 /// Takes a custom emoji in the format of `<:lrrJUDGE:289173939802996736>` and returns it as a Serenity `ReactionType`.
 pub fn parse_custom_emoji(text: &str) -> Option<ReactionType> {
     lazy_static! {
