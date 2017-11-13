@@ -54,7 +54,7 @@ impl EventHandler for Handler {
     }
 
     fn on_message(&self, mut ctx: Context, msg: Message) {
-        if msg.channel_id == werewolf::TEXT_CHANNEL || msg.channel_id == msg.author.create_dm_channel().expect("failed to get DM channel for sender").id {
+        if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                 if werewolf::handle_action(&mut ctx, action).expect("failed to handle game action") {
                     msg.react("👀").expect("reaction failed");

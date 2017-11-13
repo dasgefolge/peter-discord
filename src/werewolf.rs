@@ -77,6 +77,7 @@ impl GameState {
         } else {
             None
         };
+        //TODO send new role DMs for remaining Quantum States
         Ok(())
     }
 
