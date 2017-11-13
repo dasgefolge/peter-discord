@@ -48,9 +48,9 @@ pub struct GameState {
 }
 
 impl GameState {
-    fn announce_deaths(&mut self) -> ::Result<()> {
-        self.alive = if let Some(new_alive) = self.state.alive() {
-            let new_alive = new_alive.into_iter().cloned().collect();
+    fn announce_deaths(&mut self, new_alive: Option<HashSet<UserId>>) -> ::Result<()> {
+        self.alive = if let Some(new_alive) = new_alive {
+            let new_alive = new_alive.iter().cloned().collect();
             if let Some(ref old_alive) = self.alive {
                 let mut died = (old_alive - &new_alive).into_iter().map(|user_id| user_id.get()).collect::<::serenity::Result<Vec<_>>>()?;
                 if !died.is_empty() {
@@ -103,7 +103,7 @@ impl GameState {
             day.no_lynch()
         };
         self.votes = HashMap::default();
-        self.announce_deaths()?;
+        self.announce_deaths(result.alive().map(|new_alive| new_alive.into_iter().cloned().collect()))?;
         if let State::Night(_) = result {
             TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
         }
@@ -283,7 +283,8 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
 }
 
 fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
-    state_ref.announce_deaths()?;
+    let new_alive = { state_ref.state.alive().map(|new_alive| new_alive.into_iter().cloned().collect()) };
+    state_ref.announce_deaths(new_alive)?;
     let state = mem::replace(&mut state_ref.state, State::default());
     Ok(match state {
         State::Signups(signups) => {
