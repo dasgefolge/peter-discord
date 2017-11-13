@@ -6,7 +6,7 @@ extern crate peter;
 extern crate serenity;
 extern crate typemap;
 
-use std::process;
+use std::{process, thread};
 use std::collections::{BTreeMap, HashSet};
 
 use serenity::prelude::*;
@@ -54,13 +54,15 @@ impl EventHandler for Handler {
     }
 
     fn on_message(&self, mut ctx: Context, msg: Message) {
-        if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
-            if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
-                if werewolf::handle_action(&mut ctx, action).expect("failed to handle game action") {
-                    msg.react("👀").expect("reaction failed");
+        thread::spawn(move || { //TODO remove this workaround when Serenity threading is fixed
+            if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
+                if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
+                    if werewolf::handle_action(&mut ctx, action).expect("failed to handle game action") {
+                        msg.react("👀").expect("reaction failed");
+                    }
                 }
             }
-        }
+        });
     }
 
     fn on_voice_state_update(&self, ctx: Context, _: Option<GuildId>, voice_state: VoiceState) {

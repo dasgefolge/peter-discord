@@ -7,6 +7,7 @@
 
 #[macro_use] extern crate lazy_static;
 extern crate num;
+extern crate parking_lot;
 extern crate quantum_werewolf;
 extern crate rand;
 extern crate regex;

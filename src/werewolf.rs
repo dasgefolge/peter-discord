@@ -189,7 +189,9 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
             return Ok(());
         }
     }
-    continue_game(ctx)?;
+    //continue_game(ctx)?;
+    let ctx_data = ctx.data.clone();
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
     Ok(())
 }
 
@@ -211,13 +213,16 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
             return Ok(());
         }
     }
-    continue_game(ctx)?;
+    //continue_game(ctx)?;
+    let ctx_data = ctx.data.clone();
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
     Ok(())
 }
 
-fn continue_game(ctx: &mut Context) -> ::Result<()> {
+use std::sync::Arc; use parking_lot::Mutex; use typemap::ShareMap; //TODO remove and use ctx.data instead of ctx_data?
+fn continue_game(ctx_data: Arc<Mutex<ShareMap>>) -> ::Result<()> {
     let (mut timeout_idx, mut sleep_duration) = {
-        let mut data = ctx.data.lock();
+        let mut data = ctx_data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
         if let Some(duration) = handle_game_state(state_ref)? {
             if state_ref.timeouts_active() { return Ok(()); }
@@ -228,7 +233,7 @@ fn continue_game(ctx: &mut Context) -> ::Result<()> {
     };
     loop {
         thread::sleep(sleep_duration);
-        let mut data = ctx.data.lock();
+        let mut data = ctx_data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
         if state_ref.timeout_cancelled(timeout_idx) { break; }
         state_ref.cancel_timeout(timeout_idx);
@@ -271,7 +276,9 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
             State::Signups(_) | State::Complete(_) => { return Ok(false); }
         }
     }
-    continue_game(ctx)?;
+    //continue_game(ctx)?;
+    let ctx_data = ctx.data.clone();
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
     Ok(true)
 }
 
