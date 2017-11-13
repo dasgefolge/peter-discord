@@ -83,7 +83,7 @@ impl Iterator for Iter {
                     break Some(ReactionType::Custom {
                         id: emoji_id.id,
                         name: Some(emoji_id.name)
-                    }); //TODO replace with `break Some(emoji_id.into());` when that feature is merged into serenity
+                    }); //TODO (serenity 0.5.0) replace with `break Some(emoji_id.into());`
                 }
             }
             if let Some(emoji) = self.emoji.iter().rev().filter(|&emoji| text.starts_with(emoji)).next() { // longest emoji first

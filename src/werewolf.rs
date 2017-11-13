@@ -191,7 +191,7 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
     Ok(())
 }
 
@@ -215,11 +215,11 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
     Ok(())
 }
 
-use std::sync::Arc; use parking_lot::Mutex; use typemap::ShareMap; //TODO remove and use ctx.data instead of ctx_data?
+use std::sync::Arc; use parking_lot::Mutex; use typemap::ShareMap; //TODO (serenity 0.5.0) remove and use ctx.data instead of ctx_data
 fn continue_game(ctx_data: Arc<Mutex<ShareMap>>) -> ::Result<()> {
     let (mut timeout_idx, mut sleep_duration) = {
         let mut data = ctx_data.lock();
@@ -278,7 +278,7 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO remove this workaround when Serenity threading is fixed
+    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
     Ok(true)
 }
 
