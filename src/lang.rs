@@ -6,7 +6,7 @@ use std::fmt;
 
 use num::One;
 
-use quantum_werewolf::game::Role;
+use quantum_werewolf::game::{Faction, Role};
 
 use serenity::utils::MessageBuilder;
 
@@ -28,6 +28,32 @@ pub fn cardinal<N: Eq + One + ToString>(n: N, case: Case, gender: Gender) -> Str
         }.to_owned()
     } else {
         n.to_string()
+    }
+}
+
+pub fn faction_name(faction: Faction, case: Case) -> String {
+    match faction {
+        Faction::Village => match case {
+            Gen => "Dorfes",
+            _ => "Dorf"
+        }.to_owned(),
+        Faction::Werewolves => match case {
+            Dat => "Werwölfen",
+            _ => "Werwölfe"
+        }.to_owned()
+    }
+}
+
+pub fn faction_name_sg(faction: Faction, case: Case) -> String {
+    match faction {
+        Faction::Village => match case {
+            Gen => "Dorfes",
+            _ => "Dorf"
+        }.to_owned(),
+        Faction::Werewolves => match case {
+            Dat => "Werwolf",
+            _ => "Werwolf"
+        }.to_owned()
     }
 }
 
