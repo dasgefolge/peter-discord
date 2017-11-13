@@ -484,7 +484,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "quantum-werewolf"
 version = "0.1.0"
-source = "git+https://github.com/fenhl/quantum-werewolf#65bd1ddc56ab760ede1d2782ef256795227100e3"
+source = "git+https://github.com/fenhl/quantum-werewolf#1403642a74d91c04d1138ec09492b832c3c33924"
 dependencies = [
  "rand 0.3.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

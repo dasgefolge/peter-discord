@@ -192,6 +192,28 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
     Ok(())
 }
 
+pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
+    {
+        let mut data = ctx.data.lock();
+        let state = data.get_mut::<GameState>().expect("missing Werewolf game state");
+        if let State::Complete(_) = state.state {
+            state.state = State::default();
+        }
+        if let State::Signups(ref mut signups) = state.state {
+            if !signups.remove_player(&msg.author.id) {
+                msg.reply("du warst nicht angemeldet")?;
+                return Ok(());
+            }
+            msg.react("✅")?;
+        } else {
+            msg.reply("bitte warte, bis das aktuelle Spiel vorbei ist")?; //TODO implement forfeiting
+            return Ok(());
+        }
+    }
+    continue_game(ctx)?;
+    Ok(())
+}
+
 fn continue_game(ctx: &mut Context) -> ::Result<()> {
     let (mut timeout_idx, mut sleep_duration) = {
         let mut data = ctx.data.lock();

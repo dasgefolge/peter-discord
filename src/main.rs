@@ -121,6 +121,10 @@ fn main() {
             .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
             .exec(werewolf::command_in)
         )
+        .command("out", |c| c
+            .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
+            .exec(werewolf::command_out)
+        )
         .on("ping", commands::ping)
         .on("poll", commands::poll)
         .command("quit", |c| c
