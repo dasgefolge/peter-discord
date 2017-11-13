@@ -264,11 +264,11 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
             }
             State::Day(ref day) => match action {
                 Action::Vote(src_id, vote) => {
-                    if !day.secret_ids().contains(&src_id) { return Ok(false); }
+                    if !day.alive().contains(&src_id) { return Ok(false); }
                     state_ref.votes.insert(src_id, vote);
                 }
                 Action::Unvote(src_id) => {
-                    if !day.secret_ids().contains(&src_id) { return Ok(false); }
+                    if !day.alive().contains(&src_id) { return Ok(false); }
                     state_ref.votes.remove(&src_id);
                 }
                 Action::Night(..) => { return Ok(false); }
@@ -361,6 +361,20 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                 for (secret_id, player) in started.secret_ids().expect("failed to get secred player IDs").into_iter().enumerate() {
                     let dm = quantum_role_dm(&roles, started.num_players(), secret_id);
                     player.create_dm_channel()?.say(&dm)?;
+                }
+                match started {
+                    State::Night(_) => {
+                        TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
+                    }
+                    State::Day(ref day) => {
+                        let lynch_votes = day.alive().len() / 2 + 1;
+                        let builder = MessageBuilder::default()
+                            .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
+                            .push_safe(::lang::cardinal(lynch_votes, ::lang::Dat, ::lang::F))
+                            .push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
+                        TEXT_CHANNEL.say(builder)?;
+                    }
+                    _ => ()
                 }
                 started
             }
