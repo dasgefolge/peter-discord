@@ -6,7 +6,7 @@ use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::{Message, ReactionType};
+use serenity::model::Message;
 
 pub fn ping(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
     let mut rng = thread_rng();
@@ -26,8 +26,8 @@ pub fn poll(_: &mut Context, msg: &Message, mut args: Args) -> Result<(), Comman
             msg.react(::emoji::nth_letter(i))?;
         }
     } else {
-        msg.react(ReactionType::Unicode("👍".to_owned()))?;
-        msg.react(ReactionType::Unicode("👎".to_owned()))?;
+        msg.react("👍")?;
+        msg.react("👎")?;
     }
     Ok(())
 }

@@ -16,7 +16,12 @@ path = "src/lib.rs"
 
 [dependencies]
 lazy_static = "*"
+num = "*"
 rand = "*"
 regex = "*"
 serenity = "*"
 typemap = "*"
+wrapped_enum = "*"
+
+[dependencies.quantum-werewolf]
+git = "https://github.com/fenhl/quantum-werewolf"

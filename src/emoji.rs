@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use regex::Regex;
 
-use serenity::model::{EmojiId, ReactionType};
+use serenity::model::{EmojiIdentifier, ReactionType};
 
 /// An error that can occur while parsing emoji from a message.
 #[derive(Debug)]
@@ -78,9 +78,12 @@ impl Iterator for Iter {
         loop {
             if let Some(captures) = RE.captures(text) {
                 let capture = captures.get(0).expect("failed to capture match object").as_str();
-                if let Some(emoji) = parse_custom_emoji(capture) {
+                if let Ok(emoji_id) = EmojiIdentifier::from_str(capture) {
                     self.text = text[capture.len()..].to_owned();
-                    break Some(emoji);
+                    break Some(ReactionType::Custom {
+                        id: emoji_id.id,
+                        name: Some(emoji_id.name)
+                    }); //TODO replace with `break Some(emoji_id.into());` when that feature is merged into serenity
                 }
             }
             if let Some(emoji) = self.emoji.iter().rev().filter(|&emoji| text.starts_with(emoji)).next() { // longest emoji first
@@ -99,20 +102,4 @@ impl Iterator for Iter {
 pub fn nth_letter(n: u8) -> ReactionType {
     if n >= 26 { panic!("letter not in range"); }
     ReactionType::Unicode(::std::char::from_u32('🇦' as u32 + n as u32).expect("failed to create regional indicator").to_string())
-}
-
-/// Takes a custom emoji in the format of `<:lrrJUDGE:289173939802996736>` and returns it as a Serenity `ReactionType`.
-pub fn parse_custom_emoji(text: &str) -> Option<ReactionType> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new("^<:([0-9A-Z_a-z]{2,}):([0-9]+)>$").expect("failed to compile custom emoji regex");
-    }
-    RE.captures(text)
-        .and_then(|captures| match (captures.get(1), captures.get(2)) {
-            (Some(name), Some(id)) => Some((name.as_str(), id.as_str())),
-            _ => None
-        })
-        .and_then(|(name, id)| Some(ReactionType::Custom {
-            id: EmojiId(u64::from_str(id).expect("failed to parse custom emoji ID")),
-            name: Some(name.to_owned())
-        }))
 }
