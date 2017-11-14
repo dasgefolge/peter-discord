@@ -15,13 +15,14 @@ use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::{ChannelId, Message, UserId};
+use serenity::model::{ChannelId, Message, RoleId, UserId};
 use serenity::utils::MessageBuilder;
 
 use typemap::Key;
 
-use lang::{cardinal, join, role_gender, role_name};
+use lang::{BuilderExt, cardinal, role_gender, role_name};
 
+pub const PLAYER_ROLE: RoleId = RoleId(379778120850341890);
 pub const TEXT_CHANNEL: ChannelId = ChannelId(378848336255516673);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -104,8 +105,8 @@ impl GameState {
         };
         self.votes = HashMap::default();
         self.announce_deaths(result.alive().map(|new_alive| new_alive.into_iter().cloned().collect()))?;
-        if let State::Night(_) = result {
-            TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
+        if let State::Night(ref night) = result {
+            self.start_night(night)?;
         }
         Ok(result)
     }
@@ -127,29 +128,39 @@ impl GameState {
                     }
                 }
             }
-            // announce probability table
-            let mut builder = MessageBuilder::default()
-                .push("Die aktuelle Wahrscheinlichkeitsverteilung:");
-            for (player_idx, probabilities) in day.probability_table().into_iter().enumerate() {
-                builder = builder.push_line("").push_safe(match probabilities {
-                    Ok((village_ratio, werewolves_ratio, dead_ratio)) => {
-                        format!("{}: {}% Dorf, {}% Werwolf, {}% tot", player_idx + 1, (village_ratio * 100.0).round() as u8, (werewolves_ratio * 100.0).round() as u8, (dead_ratio * 100.0).round() as u8)
-                    }
-                    Err(faction) => {
-                        format!("{}: tot (war {})", player_idx + 1, ::lang::faction_name_sg(faction, ::lang::Nom))
-                    }
-                });
-            }
-            TEXT_CHANNEL.say(builder)?;
-            // open discussion
-            let lynch_votes = day.alive().len() / 2 + 1;
-            let builder = MessageBuilder::default()
-                .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
-                .push_safe(::lang::cardinal(lynch_votes, ::lang::Dat, ::lang::F))
-                .push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
-            TEXT_CHANNEL.say(builder)?;
+            self.start_day(day)?;
         }
         Ok(result)
+    }
+
+    fn start_day(&self, day: &Day<UserId>) -> ::Result<()> {
+        // announce probability table
+        let mut builder = MessageBuilder::default()
+            .push("Die aktuelle Wahrscheinlichkeitsverteilung:");
+        for (player_idx, probabilities) in day.probability_table().into_iter().enumerate() {
+            builder = builder.push_line("").push_safe(match probabilities {
+                Ok((village_ratio, werewolves_ratio, dead_ratio)) => {
+                    format!("{}: {}% Dorf, {}% Werwolf, {}% tot", player_idx + 1, (village_ratio * 100.0).round() as u8, (werewolves_ratio * 100.0).round() as u8, (dead_ratio * 100.0).round() as u8)
+                }
+                Err(faction) => {
+                    format!("{}: tot (war {})", player_idx + 1, ::lang::faction_name_sg(faction, ::lang::Nom))
+                }
+            });
+        }
+        TEXT_CHANNEL.say(builder)?;
+        // open discussion
+        let lynch_votes = day.alive().len() / 2 + 1;
+        let builder = MessageBuilder::default()
+            .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
+            .push_safe(::lang::cardinal(lynch_votes, ::lang::Dat, ::lang::F))
+            .push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
+        TEXT_CHANNEL.say(builder)?;
+        Ok(())
+    }
+
+    fn start_night(&self, _: &Night<UserId>) -> ::Result<()> {
+        TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
+        Ok(())
     }
 
     fn start_timeout(&mut self) -> usize {
@@ -364,16 +375,11 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                     player.create_dm_channel()?.say(&dm)?;
                 }
                 match started {
-                    State::Night(_) => {
-                        TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
+                    State::Night(ref night) => {
+                        state_ref.start_night(night)?;
                     }
                     State::Day(ref day) => {
-                        let lynch_votes = day.alive().len() / 2 + 1;
-                        let builder = MessageBuilder::default()
-                            .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
-                            .push_safe(::lang::cardinal(lynch_votes, ::lang::Dat, ::lang::F))
-                            .push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
-                        TEXT_CHANNEL.say(builder)?;
+                        state_ref.start_day(day)?;
                     }
                     _ => ()
                 }
@@ -480,20 +486,20 @@ pub fn quantum_role_dm(roles: &[Role], num_players: usize, secret_id: usize) -> 
     let mut role_count_list = role_counts.clone().into_iter().collect::<Vec<_>>();
     role_count_list.sort_by_key(|&(role, _)| role_name(role, ::lang::Nom, false));
     builder = builder
-        .push("Du bist eine Quantenüberlagerung aus ");
-    builder = join(builder, role_count_list.into_iter().map(|(role, count)| {
-        let card = cardinal(count as u64, ::lang::Dat, role_gender(role));
-        if let Role::Werewolf(_) = role {
-            format!("{} {}", card, if count == 1 { "Werwolf" } else { "Werwölfen" })
-        } else {
-            format!("{} {}", card, role_name(role, ::lang::Dat, count != 1))
-        }
-    }), None);
-    builder = builder
+        .push("Du bist eine ")
+        .push_bold("Quantenüberlagerung aus ")
+        .join_with(None, MessageBuilder::push_bold_safe, role_count_list.into_iter().map(|(role, count)| {
+            let card = cardinal(count as u64, ::lang::Dat, role_gender(role));
+            if let Role::Werewolf(_) = role {
+                format!("{} {}", card, if count == 1 { "Werwolf" } else { "Werwölfen" })
+            } else {
+                format!("{} {}", card, role_name(role, ::lang::Dat, count != 1))
+            }
+        }))
         .push(".")
     // Rollenrang
         .push(" Dein Rollenrang ist ")
-        .push(secret_id + 1)
+        .push_bold(secret_id + 1)
         .push(".")
     //TODO Partei (für qww erst relevant, wenn nur noch eine Rolle möglich ist)
     //TODO Dorfname (bei Variante „die Gemeinschaft der Dörfer“)

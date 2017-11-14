@@ -17,7 +17,7 @@ path = "src/lib.rs"
 [dependencies]
 lazy_static = "*"
 num = "*"
-parking_lot = "*"
+parking_lot = "0.4" #TODO (serenity 0.5.0) remove
 rand = "*"
 regex = "*"
 serenity = "*"

@@ -10,6 +10,32 @@ use quantum_werewolf::game::{Faction, Role};
 
 use serenity::utils::MessageBuilder;
 
+pub trait BuilderExt: Sized {
+    fn join<D: fmt::Display, I: IntoIterator<Item=D>>(self, empty: Option<D>, words: I) -> Self;
+
+    fn join_with<D: fmt::Display, I: IntoIterator<Item=D>, F: Fn(Self, String) -> Self>(self, empty: Option<D>, push_fn: F, words: I) -> Self {
+        let mut words = words.into_iter().map(|word| word.to_string()).collect::<Vec<_>>();
+        match words.len() {
+            0 => push_fn(self, empty.expect("tried to join an empty list with no fallback").to_string()),
+            1 => push_fn(self, words.swap_remove(0)),
+            2 => push_fn(push_fn(push_fn(self, words.swap_remove(0)), " und ".into()), words.swap_remove(0)),
+            _ => {
+                let last = words.pop().unwrap();
+                let first = words.remove(0);
+                let builder = words.into_iter()
+                    .fold(push_fn(self, first), |builder, word| push_fn(push_fn(builder, ", ".into()), word));
+                push_fn(push_fn(builder, " und ".into()), last)
+            }
+        }
+    }
+}
+
+impl BuilderExt for MessageBuilder {
+    fn join<D: fmt::Display, I: IntoIterator<Item=D>>(self, empty: Option<D>, words: I) -> MessageBuilder {
+        self.join_with(empty, MessageBuilder::push_safe, words)
+    }
+}
+
 pub enum Gender { M, F, N }
 pub enum Case { Nom, Gen, Acc, Dat }
 
@@ -54,23 +80,6 @@ pub fn faction_name_sg(faction: Faction, case: Case) -> String {
             Dat => "Werwolf",
             _ => "Werwolf"
         }.to_owned()
-    }
-}
-
-pub fn join<D: fmt::Display, I: IntoIterator<Item=D>>(builder: MessageBuilder, words: I, empty: Option<D>) -> MessageBuilder {
-    let mut words = words.into_iter().map(|word| word.to_string()).collect::<Vec<_>>();
-    match words.len() {
-        0 => builder.push_safe(empty.expect("tried to join an empty list with no fallback")),
-        1 => builder.push_safe(words.swap_remove(0)),
-        2 => builder.push_safe(words.swap_remove(0)).push(" und ").push_safe(words.swap_remove(0)),
-        _ => {
-            let last = words.pop().unwrap();
-            let first = words.remove(0);
-            words.into_iter()
-                .fold(builder.push_safe(first), |builder, word| builder.push(", ").push_safe(word))
-                .push(" und ")
-                .push_safe(last)
-        }
     }
 }
 
