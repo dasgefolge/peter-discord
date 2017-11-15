@@ -15,14 +15,14 @@ use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::{ChannelId, Message, RoleId, UserId};
+use serenity::model::{ChannelId, Message, Permissions, PermissionOverwrite, PermissionOverwriteType, RoleId, UserId};
 use serenity::utils::MessageBuilder;
 
 use typemap::Key;
 
-use lang::{BuilderExt, cardinal, role_gender, role_name};
+use lang::{BuilderExt, cardinal, faction_name, faction_name_sg, role_gender, role_name};
 
-pub const PLAYER_ROLE: RoleId = RoleId(379778120850341890);
+pub const DISCUSSION_ROLE: RoleId = RoleId(379778120850341890);
 pub const TEXT_CHANNEL: ChannelId = ChannelId(378848336255516673);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,6 +58,10 @@ impl GameState {
                     died.sort_by_key(|user| (user.name.clone(), user.discriminator));
                     let mut builder = MessageBuilder::default();
                     for (i, dead_player) in died.into_iter().enumerate() {
+                        // update permissions
+                        let roles = ::GEFOLGE.member(dead_player.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
+                        ::GEFOLGE.edit_member(dead_player.clone(), |m| m.roles(roles))?;
+                        // add to announcement
                         if i > 0 {
                             builder = builder.push(" ");
                         }
@@ -92,6 +96,9 @@ impl GameState {
 
     fn resolve_day(&mut self, day: Day<UserId>) -> ::Result<State<UserId>> {
         self.cancel_all_timeouts();
+        // close discussion
+        TEXT_CHANNEL.delete_permission(PermissionOverwriteType::Role(DISCUSSION_ROLE))?;
+        TEXT_CHANNEL.say("Die Diskussion ist geschlossen.")?;
         // determine the players and/or game actions with the most votes
         let (_, vote_result) = vote_leads(&self);
         // if the result is a single player, lynch that player
@@ -122,7 +129,7 @@ impl GameState {
                     NightActionResult::Investigation(faction) => {
                         let dm = MessageBuilder::default()
                             .push("Ergebnis deiner Nachtaktion: ")
-                            .push_safe(::lang::faction_name(faction, ::lang::Nom))
+                            .push_safe(faction_name(faction, ::lang::Nom))
                             .build();
                         player.create_dm_channel()?.say(&dm)?;
                     }
@@ -143,12 +150,17 @@ impl GameState {
                     format!("{}: {}% Dorf, {}% Werwolf, {}% tot", player_idx + 1, (village_ratio * 100.0).round() as u8, (werewolves_ratio * 100.0).round() as u8, (dead_ratio * 100.0).round() as u8)
                 }
                 Err(faction) => {
-                    format!("{}: tot (war {})", player_idx + 1, ::lang::faction_name_sg(faction, ::lang::Nom))
+                    format!("{}: tot (war {})", player_idx + 1, faction_name_sg(faction, ::lang::Nom))
                 }
             });
         }
         TEXT_CHANNEL.say(builder)?;
         // open discussion
+        TEXT_CHANNEL.create_permission(&PermissionOverwrite {
+            kind: PermissionOverwriteType::Role(DISCUSSION_ROLE),
+            allow: Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS,
+            deny: Permissions::empty()
+        })?;
         let lynch_votes = day.alive().len() / 2 + 1;
         let builder = MessageBuilder::default()
             .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
@@ -190,10 +202,14 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
             state.state = State::default();
         }
         if let State::Signups(ref mut signups) = state.state {
+            // sign up for game
             if !signups.sign_up(msg.author.id) {
                 msg.reply("du bist schon angemeldet")?;
                 return Ok(());
             }
+            // add DISCUSSION_ROLE
+            let roles = iter::once(DISCUSSION_ROLE).chain(::GEFOLGE.member(msg.author.clone())?.roles.into_iter());
+            ::GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
             msg.react("✅")?;
         } else {
             msg.reply("bitte warte, bis das aktuelle Spiel vorbei ist")?;
@@ -350,6 +366,14 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                     builder.push(" haben gewonnen")
                 }
             })?;
+            // unlock channel
+            let everyone = RoleId(::GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
+            TEXT_CHANNEL.delete_permission(PermissionOverwriteType::Role(everyone))?;
+            for mut member in ::GEFOLGE.members::<UserId>(None, None)? {
+                if member.roles().map_or(false, |roles| roles.into_iter().any(|role| role.id == DISCUSSION_ROLE)) {
+                    member.remove_role(DISCUSSION_ROLE)?;
+                }
+            }
             state_ref.state = State::default();
             None
         }
@@ -363,6 +387,13 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
             if signups.num_players() < MIN_PLAYERS {
                 State::Signups(signups)
             } else {
+                // lock channel
+                let everyone = RoleId(::GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
+                TEXT_CHANNEL.create_permission(&PermissionOverwrite {
+                    kind: PermissionOverwriteType::Role(everyone),
+                    allow: Permissions::empty(),
+                    deny: Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS
+                })?;
                 // create a random role distribution
                 let num_ww = signups.num_players() * 2 / 5;
                 let mut roles = (0..num_ww).map(|i| Role::Werewolf(i)).collect::<Vec<_>>();

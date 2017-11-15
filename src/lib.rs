@@ -17,12 +17,17 @@ extern crate typemap;
 
 use std::fmt;
 
+use serenity::model::GuildId;
+
 pub mod bitbar;
 pub mod commands;
 pub mod emoji;
 pub mod lang;
 pub mod parse;
 pub mod werewolf;
+
+/// The Gefolge guild's ID.
+pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 
 /// The token for the Peter bot user.
 pub const TOKEN: &str = "MzY1OTM2NDkzNTM5MjI5Njk5.DMUAVw.JteeTwsjbHOtNAHdMGXQJllCK6k";
