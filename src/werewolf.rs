@@ -234,6 +234,9 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
                 msg.reply("du warst nicht angemeldet")?;
                 return Ok(());
             }
+            // remove DISCUSSION_ROLE
+            let roles = ::GEFOLGE.member(msg.author.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
+            ::GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
             msg.react("✅")?;
         } else {
             msg.reply("bitte warte, bis das aktuelle Spiel vorbei ist")?; //TODO implement forfeiting
