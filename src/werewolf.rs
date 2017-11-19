@@ -94,7 +94,7 @@ impl GameState {
         self.timeouts[timeout_idx] = false;
     }
 
-    fn resolve_day(&mut self, day: Day<UserId>) -> ::Result<State<UserId>> {
+    fn resolve_day(&mut self, day: Day<UserId>) -> ::Result<()> {
         self.cancel_all_timeouts();
         // close discussion
         TEXT_CHANNEL.delete_permission(PermissionOverwriteType::Role(DISCUSSION_ROLE))?;
@@ -102,7 +102,7 @@ impl GameState {
         // determine the players and/or game actions with the most votes
         let (_, vote_result) = vote_leads(&self);
         // if the result is a single player, lynch that player
-        let result = if vote_result.len() == 1 {
+        self.state = if vote_result.len() == 1 {
             match vote_result.into_iter().next().unwrap() {
                 Vote::Player(user_id) => day.lynch(user_id),
                 Vote::NoLynch => day.no_lynch()
@@ -111,11 +111,12 @@ impl GameState {
             day.no_lynch()
         };
         self.votes = HashMap::default();
-        self.announce_deaths(result.alive().map(|new_alive| new_alive.into_iter().cloned().collect()))?;
-        if let State::Night(ref night) = result {
+        let new_alive = self.state.alive().map(|new_alive| new_alive.into_iter().cloned().collect());
+        self.announce_deaths(new_alive)?;
+        if let State::Night(ref night) = self.state {
             self.start_night(night)?;
         }
-        Ok(result)
+        Ok(())
     }
 
     fn resolve_night(&mut self, night: Night<UserId>) -> ::Result<State<UserId>> {
@@ -342,7 +343,7 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
             let (max_votes, vote_result) = vote_leads(&state_ref);
             if max_votes > day.alive().len() / 2 && vote_result.len() == 1 {
                 if let Some(Vote::Player(_)) = vote_result.into_iter().next() {
-                    state_ref.state = state_ref.resolve_day(day)?;
+                    state_ref.resolve_day(day)?;
                     handle_game_state(state_ref)?
                 } else {
                     state_ref.state = State::Day(day);
@@ -421,7 +422,10 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
             }
         }
         State::Night(night) => state_ref.resolve_night(night)?,
-        State::Day(day) => state_ref.resolve_day(day)?,
+        State::Day(day) => {
+            state_ref.resolve_day(day)?;
+            mem::replace(&mut state_ref.state, State::default())
+        }
         State::Complete(_) => { unimplemented!(); } // there shouldn't be any timeouts after the game ends
     };
     handle_game_state(state_ref)
