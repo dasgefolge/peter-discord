@@ -20,7 +20,7 @@ use serenity::utils::MessageBuilder;
 
 use typemap::Key;
 
-use lang::{BuilderExt, cardinal, faction_name, faction_name_sg, role_gender, role_name};
+use lang::{cardinal, faction_name, faction_name_sg, join, role_gender, role_name};
 
 pub const DISCUSSION_ROLE: RoleId = RoleId(379778120850341890);
 pub const TEXT_CHANNEL: ChannelId = ChannelId(378848336255516673);
@@ -525,15 +525,14 @@ pub fn quantum_role_dm(roles: &[Role], num_players: usize, secret_id: usize) -> 
     role_count_list.sort_by_key(|&(role, _)| role_name(role, ::lang::Nom, false));
     builder = builder
         .push("Du bist eine ")
-        .push_bold("Quantenüberlagerung aus ")
-        .join_with(None, MessageBuilder::push_bold_safe, role_count_list.into_iter().map(|(role, count)| {
+        .push_bold_safe(format!("Quantenüberlagerung aus {}", join(None, role_count_list.into_iter().map(|(role, count)| {
             let card = cardinal(count as u64, ::lang::Dat, role_gender(role));
             if let Role::Werewolf(_) = role {
                 format!("{} {}", card, if count == 1 { "Werwolf" } else { "Werwölfen" })
             } else {
                 format!("{} {}", card, role_name(role, ::lang::Dat, count != 1))
             }
-        }))
+        }))))
         .push(".")
     // Rollenrang
         .push(" Dein Rollenrang ist ")
