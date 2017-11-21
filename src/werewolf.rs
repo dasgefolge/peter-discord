@@ -342,13 +342,8 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
         State::Day(day) => {
             let (max_votes, vote_result) = vote_leads(&state_ref);
             if max_votes > day.alive().len() / 2 && vote_result.len() == 1 {
-                if let Some(Vote::Player(_)) = vote_result.into_iter().next() {
-                    state_ref.resolve_day(day)?;
-                    handle_game_state(state_ref)?
-                } else {
-                    state_ref.state = State::Day(day);
-                    Some(Duration::from_secs(1800)) // Not sure how long the day limit should be. Starting out with half an hour for now to be safe. Collect stats?
-                }
+                state_ref.resolve_day(day)?;
+                handle_game_state(state_ref)?
             } else {
                 state_ref.state = State::Day(day);
                 Some(Duration::from_secs(1800)) // Not sure how long the day limit should be. Starting out with half an hour for now to be safe. Collect stats?
