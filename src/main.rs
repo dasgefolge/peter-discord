@@ -49,7 +49,7 @@ impl EventHandler for Handler {
         }
         let mut data = ctx.data.lock();
         data.insert::<bitbar::VoiceStates>(chan_map);
-        let chan_map = data.get_mut::<bitbar::VoiceStates>().expect("missing voice states map");
+        let chan_map = data.get::<bitbar::VoiceStates>().expect("missing voice states map");
         bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
     }
 

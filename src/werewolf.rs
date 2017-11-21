@@ -498,8 +498,8 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Act
 }
 
 pub fn player_in_game(ctx: &mut Context, user_id: UserId) -> bool {
-    let mut data = ctx.data.lock();
-    let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
+    let data = ctx.data.lock();
+    let state_ref = data.get::<GameState>().expect("missing Werewolf game state");
     state_ref.state.secret_ids().map_or(false, |secret_ids| secret_ids.contains(&user_id))
 }
 
