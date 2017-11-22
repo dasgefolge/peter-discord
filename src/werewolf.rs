@@ -460,21 +460,21 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
         cmd_name.push(next_char);
     }
     Some(match &cmd_name[..] {
-        "heal" => {
+        "h" | "heal" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Heal(src, tgt))),
                 Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
                 Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
-        "inspect" | "investigate" => {
+        "i" | "inspect" | "investigate" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Investigate(src, tgt))),
                 Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
                 Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
-        "kill" => {
+        "k" | "kill" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Kill(src, tgt))),
                 Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
