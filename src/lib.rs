@@ -37,6 +37,8 @@ wrapped_enum! {
     #[derive(Debug)]
     pub enum Error {
         #[allow(missing_docs)]
+        GameAction(String),
+        #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
@@ -48,6 +50,7 @@ wrapped_enum! {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f)

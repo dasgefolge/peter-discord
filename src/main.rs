@@ -60,8 +60,10 @@ impl EventHandler for Handler {
         thread::Builder::new().name("peter message handler".into()).spawn(move || { //TODO (serenity 0.5.0) remove spawn wrapper
             if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
                 if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
-                    if werewolf::handle_action(&mut ctx, action).expect("failed to handle game action") {
-                        msg.react("👀").expect("reaction failed");
+                    match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
+                        Ok(()) => { msg.react("👀").expect("reaction failed"); }
+                        Err(peter::Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
+                        Err(e) => { panic!("failed to handle game action: {:?}", e); }
                     }
                 }
             }

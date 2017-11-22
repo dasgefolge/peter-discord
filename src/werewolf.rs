@@ -279,38 +279,43 @@ fn continue_game(ctx_data: Arc<Mutex<ShareMap>>) -> ::Result<()> {
     Ok(())
 }
 
-/// Return whether or not the action was recognized.
-pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
+/// Processes an action.
+///
+/// If the action was valid, returns `Ok`.
+///
+/// A return value of `Error::GameAction` indicates an invalid action. Other return values are internal errors.
+pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<()> {
     {
         let mut data = ctx.data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
         match state_ref.state {
             State::Night(ref night) => {
-                if let Action::Night(night_action) = action {
-                    if !night.secret_ids().contains(night_action.src()) { return Ok(false); }
-                    state_ref.night_actions.push(night_action);
-                } else {
-                    return Ok(false);
+                match action {
+                    Action::Night(night_action) => {
+                        if !night.secret_ids().contains(night_action.src()) { return Err(::Error::GameAction("du spielst nicht mit".into())); }
+                        state_ref.night_actions.push(night_action);
+                    }
+                    Action::Vote(_, _) | Action::Unvote(_) => { return Err(::Error::GameAction("aktuell läuft keine Abstimmung".into())); }
                 }
             }
             State::Day(ref day) => match action {
                 Action::Vote(src_id, vote) => {
-                    if !day.alive().contains(&src_id) { return Ok(false); }
+                    if !day.alive().contains(&src_id) { return Err(::Error::GameAction("tote Spieler können nicht abstimmen".into())); }
                     state_ref.votes.insert(src_id, vote);
                 }
                 Action::Unvote(src_id) => {
-                    if !day.alive().contains(&src_id) { return Ok(false); }
+                    if !day.alive().contains(&src_id) { return Err(::Error::GameAction("tote Spieler können nicht abstimmen".into())); }
                     state_ref.votes.remove(&src_id);
                 }
-                Action::Night(..) => { return Ok(false); }
+                Action::Night(..) => { return Err(::Error::GameAction("es ist Tag".into())); }
             }
-            State::Signups(_) | State::Complete(_) => { return Ok(false); }
+            State::Signups(_) | State::Complete(_) => { return Err(::Error::GameAction("aktuell läuft kein Spiel".into())); }
         }
     }
-    //continue_game(ctx)?;
+    // continue game in separate thread to make sure the reaction is posted immediately
     let ctx_data = ctx.data.clone();
-    thread::Builder::new().name("peter qww action handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
-    Ok(true)
+    thread::Builder::new().name("peter qww action handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?;
+    Ok(())
 }
 
 fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
@@ -426,14 +431,14 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
     handle_game_state(state_ref)
 }
 
-pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Action> {
-    fn parse_player(ctx: &mut Context, subj: &mut &str) -> Option<UserId> {
+pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::Result<Action>> {
+    fn parse_player(ctx: &mut Context, subj: &mut &str) -> Result<UserId, Option<UserId>> {
         if let Some(user_id) = ::parse::user_mention(subj) {
-            if player_in_game(ctx, user_id) { Some(user_id) } else { None }
+            if player_in_game(ctx, user_id) { Ok(user_id) } else { Err(Some(user_id)) }
         } else {
             //TODO parse `username` or `username#1234` syntax, restrict to players in the game
             //TODO parse `@user name#1234` syntax, restrict to players in the game
-            None
+            Err(None)
         }
     }
 
@@ -454,42 +459,46 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Act
         };
         cmd_name.push(next_char);
     }
-    match &cmd_name[..] {
+    Some(match &cmd_name[..] {
         "heal" => {
             match parse_player(ctx, &mut msg) {
-                Some(tgt) => Some(Action::Night(NightAction::Heal(src, tgt))),
-                None => None
+                Ok(tgt) => Ok(Action::Night(NightAction::Heal(src, tgt))),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "inspect" | "investigate" => {
             match parse_player(ctx, &mut msg) {
-                Some(tgt) => Some(Action::Night(NightAction::Investigate(src, tgt))),
-                None => None
+                Ok(tgt) => Ok(Action::Night(NightAction::Investigate(src, tgt))),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "kill" => {
             match parse_player(ctx, &mut msg) {
-                Some(tgt) => Some(Action::Night(NightAction::Kill(src, tgt))),
-                None => None
+                Ok(tgt) => Ok(Action::Night(NightAction::Kill(src, tgt))),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "sleep" => unimplemented!(), //TODO if *this player's* mandatory night actions are complete, note that the player is done submitting night actions. otherwise, reply with an error
-        "unvote" => Some(Action::Unvote(src)),
+        "unvote" => Ok(Action::Unvote(src)),
         "v" | "vote" => {
             if msg.is_empty() {
-                Some(Action::Unvote(src))
+                Ok(Action::Unvote(src))
             } else {
-                if vec!["no lynch", "nolynch", "nl"].into_iter().any(|prefix| msg.to_ascii_lowercase().starts_with(prefix)) {
-                    return Some(Action::Vote(src, Vote::NoLynch));
+                if vec!["no lynch", "nolynch", "nl"].into_iter().any(|prefix| msg.to_ascii_lowercase() == prefix) {
+                    return Some(Ok(Action::Vote(src, Vote::NoLynch)));
                 }
                 match parse_player(ctx, &mut msg) {
-                    Some(tgt) => Some(Action::Vote(src, Vote::Player(tgt))),
-                    None => None
+                    Ok(tgt) => Ok(Action::Vote(src, Vote::Player(tgt))),
+                    Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                    Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
                 }
             }
         }
-        _ => None
-    }
+        _ => { return None; }
+    })
 }
 
 pub fn player_in_game(ctx: &mut Context, user_id: UserId) -> bool {
