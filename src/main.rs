@@ -57,7 +57,7 @@ impl EventHandler for Handler {
     }
 
     fn on_message(&self, mut ctx: Context, msg: Message) {
-        thread::spawn(move || { //TODO (serenity 0.5.0) remove spawn wrapper
+        thread::Builder::new().name("peter message handler".into()).spawn(move || { //TODO (serenity 0.5.0) remove spawn wrapper
             if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
                 if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                     if werewolf::handle_action(&mut ctx, action).expect("failed to handle game action") {
@@ -65,7 +65,7 @@ impl EventHandler for Handler {
                     }
                 }
             }
-        });
+        }).expect("failed to spawn message handler thread");
     }
 
     fn on_voice_state_update(&self, ctx: Context, _: Option<GuildId>, voice_state: VoiceState) {

@@ -219,7 +219,7 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
+    thread::Builder::new().name("peter !in handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
     Ok(())
 }
 
@@ -246,7 +246,7 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
+    thread::Builder::new().name("peter !out handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
     Ok(())
 }
 
@@ -309,7 +309,7 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<bool> {
     }
     //continue_game(ctx)?;
     let ctx_data = ctx.data.clone();
-    thread::spawn(move || continue_game(ctx_data).expect("failed to continue game")); //TODO (serenity 0.5.0) remove this workaround
+    thread::Builder::new().name("peter qww action handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
     Ok(true)
 }
 
