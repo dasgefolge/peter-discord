@@ -15,6 +15,7 @@ name = "peter"
 path = "src/lib.rs"
 
 [dependencies]
+chrono = "*"
 lazy_static = "*"
 num = "*"
 parking_lot = "0.4" #TODO (serenity 0.5.0) remove

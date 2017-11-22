@@ -2,12 +2,15 @@
 #![deny(unused)]
 #![forbid(unused_extern_crates, unused_import_braces)]
 
+extern crate chrono;
 extern crate peter;
 extern crate serenity;
 extern crate typemap;
 
 use std::{process, thread};
 use std::collections::{BTreeMap, HashSet};
+
+use chrono::prelude::*;
 
 use serenity::prelude::*;
 use serenity::framework::standard::{StandardFramework, help_commands};
@@ -113,7 +116,7 @@ fn main() {
         )
         .after(|_, _, command_name, result| {
             if let Err(why) = result {
-                println!("Command '{}' returned error {:?}", command_name, why);
+                println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
             }
         })
         .command("help", |c| c
