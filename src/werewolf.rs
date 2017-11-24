@@ -436,29 +436,27 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
         if let Some(user_id) = ::parse::user_mention(subj) {
             if player_in_game(ctx, user_id) { Ok(user_id) } else { Err(Some(user_id)) }
         } else {
-            //TODO parse `username` or `username#1234` syntax, restrict to players in the game
-            //TODO parse `@user name#1234` syntax, restrict to players in the game
+            let data = ctx.data.lock();
+            let state_ref = data.get::<GameState>().expect("missing Werewolf game state");
+            if let Some(user_ids) = state_ref.state.secret_ids() {
+                if let Some(next_word) = ::parse::next_word(&subj) {
+                    let users = if let Ok(users) = user_ids.iter().map(|user_id| user_id.get()).collect::<::serenity::Result<Vec<_>>>() { users } else { return Err(None); };
+                    let matching_users = user_ids.into_iter().zip(users).filter_map(|(&user_id, user)| if user.name == next_word { Some(user_id) } else { None }).collect::<Vec<_>>();
+                    if matching_users.len() == 1 {
+                        *subj = &subj[next_word.len()..]; // consume username
+                        return Ok(matching_users[0]);
+                    }
+                    //TODO parse `username#1234` or `@user name#1234` syntax
+                }
+            }
             Err(None)
         }
     }
 
     // A simple parser for game actions.
     if msg.starts_with('!') { msg = &msg[1..] } // remove leading `!`, if any
-    let mut cmd_name = String::default();
-    loop {
-        let next_char = match msg.chars().next() {
-            Some(' ') => {
-                msg = &msg[1..];
-                break;
-            }
-            None => { break; }
-            Some(c) => {
-                msg = &msg[c.len_utf8()..];
-                c
-            }
-        };
-        cmd_name.push(next_char);
-    }
+    let cmd_name = if let Some(cmd_name) = ::parse::next_word(&msg) { cmd_name } else { return None; };
+    msg = &msg[cmd_name.len()..]; // consume command name
     Some(match &cmd_name[..] {
         "h" | "heal" => {
             match parse_player(ctx, &mut msg) {

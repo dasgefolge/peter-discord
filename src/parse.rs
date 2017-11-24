@@ -5,6 +5,16 @@ use std::str::FromStr;
 use serenity::model::UserId;
 
 #[allow(missing_docs)]
+pub fn next_word(subj: &str) -> Option<String> {
+    let mut word = String::default();
+    for c in subj.chars() {
+        if c == ' ' { break; }
+        word.push(c);
+    }
+    if word.is_empty() { None } else { Some(word) }
+}
+
+#[allow(missing_docs)]
 pub fn user_mention(subj: &mut &str) -> Option<UserId> {
     if !subj.starts_with('<') || !subj.contains('>') {
         return None;
