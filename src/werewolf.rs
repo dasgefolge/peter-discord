@@ -433,7 +433,7 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
 
 pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::Result<Action>> {
     fn parse_player(ctx: &mut Context, subj: &mut &str) -> Result<UserId, Option<UserId>> {
-        if let Some(user_id) = ::parse::user_mention(subj) {
+        if let Some(user_id) = ::parse::eat_user_mention(subj) {
             if player_in_game(ctx, user_id) { Ok(user_id) } else { Err(Some(user_id)) }
         } else {
             let data = ctx.data.lock();
@@ -457,6 +457,7 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
     if msg.starts_with('!') { msg = &msg[1..] } // remove leading `!`, if any
     let cmd_name = if let Some(cmd_name) = ::parse::next_word(&msg) { cmd_name } else { return None; };
     msg = &msg[cmd_name.len()..]; // consume command name
+    ::parse::eat_whitespace(&mut msg);
     Some(match &cmd_name[..] {
         "h" | "heal" => {
             match parse_player(ctx, &mut msg) {
