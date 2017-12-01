@@ -11,7 +11,7 @@ const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";
 /// Add a Discord account to the list of Gefolge guild members.
 pub fn add(member: Member) -> ::Result<()> {
     let user = member.user.read().map_err(|_| ::std::sync::PoisonError::new(()))?.clone();
-    let mut f = File::create(format!("{}/{}", PROFILES_DIR, user.id))?;
+    let mut f = File::create(format!("{}/{}.json", PROFILES_DIR, user.id))?;
     write!(f, "{:#}", json!({
         "bot": user.bot,
         "discriminator": user.discriminator,
@@ -25,7 +25,7 @@ pub fn add(member: Member) -> ::Result<()> {
 
 /// Remove a Discord account from the list of Gefolge guild members.
 pub fn remove<U: Into<UserId>>(user: U) -> io::Result<()> {
-    match fs::remove_file(format!("{}/{}", PROFILES_DIR, user.into())) {
+    match fs::remove_file(format!("{}/{}.json", PROFILES_DIR, user.into())) {
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
         r => r
     }
