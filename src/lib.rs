@@ -17,13 +17,14 @@ extern crate typemap;
 
 use std::{fmt, io};
 
-use serenity::model::GuildId;
+use serenity::model::{GuildId, UserIdParseError};
 
 pub mod bitbar;
 pub mod commands;
 pub mod emoji;
 pub mod lang;
 pub mod parse;
+pub mod user_list;
 pub mod werewolf;
 
 /// The Gefolge guild's ID.
@@ -43,7 +44,9 @@ wrapped_enum! {
         #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
         #[allow(missing_docs)]
-        Serenity(serenity::Error)
+        Serenity(serenity::Error),
+        #[allow(missing_docs)]
+        UserIdParse(UserIdParseError)
     }
 }
 
@@ -53,7 +56,8 @@ impl fmt::Display for Error {
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
-            Error::Serenity(ref e) => e.fmt(f)
+            Error::Serenity(ref e) => e.fmt(f),
+            Error::UserIdParse(ref e) => e.fmt(f)
         }
     }
 }

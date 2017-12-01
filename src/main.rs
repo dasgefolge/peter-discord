@@ -8,17 +8,17 @@ extern crate serenity;
 extern crate typemap;
 
 use std::{process, thread};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::prelude::*;
 
 use serenity::prelude::*;
 use serenity::framework::standard::{StandardFramework, help_commands};
-use serenity::model::{Guild, GuildId, Message, Permissions, Ready, VoiceState};
+use serenity::model::{Guild, GuildId, Member, Message, Permissions, Ready, User, UserId, VoiceState};
 
 use typemap::Key;
 
-use peter::{bitbar, commands, werewolf};
+use peter::{bitbar, commands, user_list, werewolf};
 
 struct Handler;
 
@@ -37,7 +37,16 @@ impl EventHandler for Handler {
         }
     }
 
+    fn on_guild_ban_addition(&self, _: Context, _: GuildId, user: User) {
+        user_list::remove(user.id).expect("failed to remove banned user from user list");
+    }
+
+    fn on_guild_ban_removal(&self, _: Context, _: GuildId, user: User) {
+        user_list::add(user.id).expect("failed to add unbanned user to user list");
+    }
+
     fn on_guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+        user_list::set(guild.members.keys().cloned()).expect("failed to initialize user list");
         let mut chan_map = <bitbar::VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
@@ -54,6 +63,20 @@ impl EventHandler for Handler {
         data.insert::<bitbar::VoiceStates>(chan_map);
         let chan_map = data.get::<bitbar::VoiceStates>().expect("missing voice states map");
         bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
+    }
+
+    fn on_guild_member_addition(&self, _: Context, _: GuildId, member: Member) {
+        user_list::add(member.user.read().expect("failed to lock member info").id).expect("failed to add new guild member to user list");
+    }
+
+    fn on_guild_member_removal(&self, _: Context, _: GuildId, user: User, _: Option<Member>) {
+        user_list::remove(user.id).expect("failed to remove removed guild member from user list");
+    }
+
+    fn on_guild_members_chunk(&self, _: Context, _: GuildId, members: HashMap<UserId, Member>) {
+        for &user_id in members.keys() {
+            user_list::add(user_id).expect("failed to add chunk of guild members to user list");
+        }
     }
 
     fn on_message(&self, mut ctx: Context, msg: Message) {
