@@ -38,15 +38,15 @@ impl EventHandler for Handler {
     }
 
     fn on_guild_ban_addition(&self, _: Context, _: GuildId, user: User) {
-        user_list::remove(user.id).expect("failed to remove banned user from user list");
+        user_list::remove(user).expect("failed to remove banned user from user list");
     }
 
-    fn on_guild_ban_removal(&self, _: Context, _: GuildId, user: User) {
-        user_list::add(user.id).expect("failed to add unbanned user to user list");
+    fn on_guild_ban_removal(&self, _: Context, guild_id: GuildId, user: User) {
+        user_list::add(guild_id.member(user).expect("failed to get unbanned guild member")).expect("failed to add unbanned user to user list");
     }
 
     fn on_guild_create(&self, ctx: Context, guild: Guild, _: bool) {
-        user_list::set(guild.members.keys().cloned()).expect("failed to initialize user list");
+        user_list::set(guild.members.values().cloned()).expect("failed to initialize user list");
         let mut chan_map = <bitbar::VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
@@ -66,16 +66,16 @@ impl EventHandler for Handler {
     }
 
     fn on_guild_member_addition(&self, _: Context, _: GuildId, member: Member) {
-        user_list::add(member.user.read().expect("failed to lock member info").id).expect("failed to add new guild member to user list");
+        user_list::add(member).expect("failed to add new guild member to user list");
     }
 
     fn on_guild_member_removal(&self, _: Context, _: GuildId, user: User, _: Option<Member>) {
-        user_list::remove(user.id).expect("failed to remove removed guild member from user list");
+        user_list::remove(user).expect("failed to remove removed guild member from user list");
     }
 
     fn on_guild_members_chunk(&self, _: Context, _: GuildId, members: HashMap<UserId, Member>) {
-        for &user_id in members.keys() {
-            user_list::add(user_id).expect("failed to add chunk of guild members to user list");
+        for member in members.values() {
+            user_list::add(member.clone()).expect("failed to add chunk of guild members to user list");
         }
     }
 

@@ -11,6 +11,7 @@ extern crate parking_lot;
 extern crate quantum_werewolf;
 extern crate rand;
 extern crate regex;
+#[macro_use] extern crate serde_json;
 extern crate serenity;
 extern crate typemap;
 #[macro_use] extern crate wrapped_enum;
@@ -42,11 +43,15 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
+        Poison(::std::sync::PoisonError<()>),
+        #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
         #[allow(missing_docs)]
         Serenity(serenity::Error),
         #[allow(missing_docs)]
-        UserIdParse(UserIdParseError)
+        UserIdParse(UserIdParseError),
+        #[allow(missing_docs)]
+        Unknown(())
     }
 }
 
@@ -55,9 +60,11 @@ impl fmt::Display for Error {
         match *self {
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
+            Error::Poison(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::UserIdParse(ref e) => e.fmt(f)
+            Error::UserIdParse(ref e) => e.fmt(f),
+            Error::Unknown(()) => write!(f, "unknown error")
         }
     }
 }

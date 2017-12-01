@@ -21,6 +21,7 @@ num = "*"
 parking_lot = "0.4" #TODO (serenity 0.5.0) remove
 rand = "*"
 regex = "*"
+serde_json = "*"
 serenity = "*"
 typemap = "*"
 wrapped_enum = "*"
