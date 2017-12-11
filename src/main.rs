@@ -29,11 +29,11 @@ impl EventHandler for Handler {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
             println!("[ ** ] {}", ready.user.invite_url(Permissions::all()).expect("failed to generate invite URL"));
             ctx.quit().expect("failed to quit");
-            process::exit(1);
+            process::exit(1); //TODO (serenity 0.5.0) remove
         } else if guilds.len() > 1 {
             println!("[!!!!] Multiple guilds found");
             ctx.quit().expect("failed to quit");
-            process::exit(1);
+            process::exit(1); //TODO (serenity 0.5.0) remove
         }
     }
 
@@ -80,6 +80,7 @@ impl EventHandler for Handler {
     }
 
     fn on_message(&self, mut ctx: Context, msg: Message) {
+        if msg.author.bot { return; } // ignore bots to prevent message loops
         thread::Builder::new().name("peter message handler".into()).spawn(move || { //TODO (serenity 0.5.0) remove spawn wrapper
             if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
                 if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
