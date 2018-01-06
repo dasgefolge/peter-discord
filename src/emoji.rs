@@ -40,6 +40,8 @@ impl fmt::Display for Error {
 }
 
 /// An iterator over all the emoji in a message.
+///
+/// Note that the `animated` field of yielded values is bogus and should not be relied upon.
 pub struct Iter {
     text: String,
     emoji: Vec<String>
@@ -82,7 +84,8 @@ impl Iterator for Iter {
                     self.text = text[capture.len()..].to_owned();
                     break Some(ReactionType::Custom {
                         id: emoji_id.id,
-                        name: Some(emoji_id.name)
+                        name: Some(emoji_id.name),
+                        animated: false // bogus value, never used
                     }); //TODO (serenity 0.5.0) replace with `break Some(emoji_id.into());`
                 }
             }

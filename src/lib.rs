@@ -3,7 +3,7 @@
 #![cfg_attr(test, deny(warnings))]
 #![warn(trivial_casts)]
 #![deny(unused, missing_docs, unused_qualifications)]
-#![forbid(unused_extern_crates, unused_import_braces)]
+#![forbid(unused_import_braces)]
 
 #[macro_use] extern crate lazy_static;
 extern crate num;

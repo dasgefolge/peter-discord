@@ -3,7 +3,6 @@
 #![allow(missing_docs)]
 
 use std::{iter, mem, str, thread};
-use std::ascii::AsciiExt;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;

@@ -1,6 +1,6 @@
 #![warn(trivial_casts)]
 #![deny(unused)]
-#![forbid(unused_extern_crates, unused_import_braces)]
+#![forbid(unused_import_braces)]
 
 extern crate chrono;
 extern crate peter;
