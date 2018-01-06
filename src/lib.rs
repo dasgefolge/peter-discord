@@ -31,9 +31,6 @@ pub mod werewolf;
 /// The Gefolge guild's ID.
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 
-/// The token for the Peter bot user.
-pub const TOKEN: &str = "MzY1OTM2NDkzNTM5MjI5Njk5.DMUAVw.JteeTwsjbHOtNAHdMGXQJllCK6k";
-
 wrapped_enum! {
     #[allow(missing_docs)]
     #[derive(Debug)]

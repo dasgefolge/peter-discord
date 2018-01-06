@@ -7,7 +7,7 @@ extern crate peter;
 extern crate serenity;
 extern crate typemap;
 
-use std::{process, thread};
+use std::{env, process, thread};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::prelude::*;
@@ -121,17 +121,19 @@ impl EventHandler for Handler {
 }
 
 fn main() {
-    let mut client = Client::new(peter::TOKEN, Handler);
-    {
-        let mut data = client.data.lock();
-        data.insert::<bitbar::VoiceStates>(BTreeMap::default());
-        data.insert::<werewolf::GameState>(werewolf::GameState::default());
-    }
+    // read config
+    let token = env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN envar");
+    let mut client = Client::new(&token, Handler);
     let owners = {
         let mut owners = HashSet::default();
         owners.insert(serenity::http::get_current_application_info().expect("couldn't get application info").owner.id);
         owners
     };
+    {
+        let mut data = client.data.lock();
+        data.insert::<bitbar::VoiceStates>(BTreeMap::default());
+        data.insert::<werewolf::GameState>(werewolf::GameState::default());
+    }
     client.with_framework(StandardFramework::new()
         .configure(|c| c
             .allow_whitespace(true) // allow ! command
@@ -167,5 +169,6 @@ fn main() {
             .owners_only(true)
         )
     );
-    client.start().expect("client error");
+    // connect to Discord
+    client.start_autosharded().expect("client error");
 }
