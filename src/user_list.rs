@@ -17,6 +17,7 @@ pub fn add(member: Member) -> ::Result<()> {
         "discriminator": user.discriminator,
         "joined": if let Some(join_date) = member.joined_at { join_date } else { return Err(::Error::Unknown(())) },
         "nick": member.nick,
+        "roles": member.roles,
         "snowflake": user.id,
         "username": user.name
     }))?;
