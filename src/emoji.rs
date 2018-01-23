@@ -7,7 +7,8 @@ use std::str::FromStr;
 
 use regex::Regex;
 
-use serenity::model::{EmojiIdentifier, ReactionType};
+use serenity::model::channel::ReactionType;
+use serenity::model::misc::EmojiIdentifier;
 
 /// An error that can occur while parsing emoji from a message.
 #[derive(Debug)]
@@ -82,11 +83,7 @@ impl Iterator for Iter {
                 let capture = captures.get(0).expect("failed to capture match object").as_str();
                 if let Ok(emoji_id) = EmojiIdentifier::from_str(capture) {
                     self.text = text[capture.len()..].to_owned();
-                    break Some(ReactionType::Custom {
-                        id: emoji_id.id,
-                        name: Some(emoji_id.name),
-                        animated: false // bogus value, never used
-                    }); //TODO (serenity 0.5.0) replace with `break Some(emoji_id.into());`
+                    break Some(emoji_id.into());
                 }
             }
             if let Some(emoji) = self.emoji.iter().rev().filter(|&emoji| text.starts_with(emoji)).next() { // longest emoji first

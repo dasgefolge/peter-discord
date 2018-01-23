@@ -2,11 +2,15 @@
 
 #![allow(missing_docs)]
 
+use std::sync::Arc;
+
 use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::Message;
+use serenity::framework::standard::{Args, Command, CommandOptions, CommandError};
+use serenity::model::channel::Message;
+
+use shut_down;
 
 pub fn ping(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
     let mut rng = thread_rng();
@@ -32,12 +36,34 @@ pub fn poll(_: &mut Context, msg: &Message, mut args: Args) -> Result<(), Comman
     Ok(())
 }
 
-pub fn quit(ctx: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
-    ctx.quit()?;
-    Ok(())
+pub struct Quit;
+
+impl Command for Quit {
+    fn execute(&self, ctx: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
+        shut_down(&ctx);
+        Ok(())
+    }
+
+    fn options(&self) -> Arc<CommandOptions> {
+        Arc::new(CommandOptions {
+            owners_only: true,
+            ..CommandOptions::default()
+        })
+    }
 }
 
-pub fn test(&mut _: &mut Context, msg: &Message, args: Args) -> Result<(), CommandError> {
-    println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
-    Ok(())
+pub struct Test;
+
+impl Command for Test {
+    fn execute(&self, _: &mut Context, msg: &Message, args: Args) -> Result<(), CommandError> {
+        println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
+        Ok(())
+    }
+
+    fn options(&self) -> Arc<CommandOptions> {
+        Arc::new(CommandOptions {
+            owners_only: true,
+            ..CommandOptions::default()
+        })
+    }
 }

@@ -4,13 +4,14 @@ use std::io;
 use std::io::prelude::*;
 use std::fs::{self, File};
 
-use serenity::model::{Member, UserId};
+use serenity::model::guild::Member;
+use serenity::model::id::UserId;
 
 const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";
 
 /// Add a Discord account to the list of Gefolge guild members.
 pub fn add(member: Member) -> ::Result<()> {
-    let user = member.user.read().map_err(|_| ::std::sync::PoisonError::new(()))?.clone();
+    let user = member.user.read().clone();
     let mut f = File::create(format!("{}/{}.json", PROFILES_DIR, user.id))?;
     write!(f, "{:#}", json!({
         "bot": user.bot,

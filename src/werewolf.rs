@@ -14,7 +14,9 @@ use rand::{Rng, thread_rng};
 
 use serenity::prelude::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::{ChannelId, Message, Permissions, PermissionOverwrite, PermissionOverwriteType, RoleId, UserId};
+use serenity::model::channel::{Message, PermissionOverwrite, PermissionOverwriteType};
+use serenity::model::id::{ChannelId, RoleId, UserId};
+use serenity::model::permissions::Permissions;
 use serenity::utils::MessageBuilder;
 
 use typemap::Key;
@@ -65,7 +67,7 @@ impl GameState {
                             builder = builder.push(" ");
                         }
                         builder = builder
-                            .mention(dead_player.id)
+                            .mention(&dead_player)
                             .push(" ist tot");
                         if let Some(role) = self.state.role(&dead_player.id) {
                             builder = builder
@@ -216,9 +218,7 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
             return Ok(());
         }
     }
-    //continue_game(ctx)?;
-    let ctx_data = ctx.data.clone();
-    thread::Builder::new().name("peter !in handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
+    continue_game(ctx)?;
     Ok(())
 }
 
@@ -243,16 +243,13 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
             return Ok(());
         }
     }
-    //continue_game(ctx)?;
-    let ctx_data = ctx.data.clone();
-    thread::Builder::new().name("peter !out handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?; //TODO (serenity 0.5.0) remove this workaround
+    continue_game(ctx)?;
     Ok(())
 }
 
-use std::sync::Arc; use parking_lot::Mutex; use typemap::ShareMap; //TODO (serenity 0.5.0) remove and use ctx.data instead of ctx_data
-fn continue_game(ctx_data: Arc<Mutex<ShareMap>>) -> ::Result<()> {
+fn continue_game(ctx: &mut Context) -> ::Result<()> {
     let (mut timeout_idx, mut sleep_duration) = {
-        let mut data = ctx_data.lock();
+        let mut data = ctx.data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
         if let Some(duration) = handle_game_state(state_ref)? {
             if state_ref.timeouts_active() { return Ok(()); }
@@ -263,7 +260,7 @@ fn continue_game(ctx_data: Arc<Mutex<ShareMap>>) -> ::Result<()> {
     };
     loop {
         thread::sleep(sleep_duration);
-        let mut data = ctx_data.lock();
+        let mut data = ctx.data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
         if state_ref.timeout_cancelled(timeout_idx) { break; }
         state_ref.cancel_timeout(timeout_idx);
@@ -312,8 +309,8 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<()> {
         }
     }
     // continue game in separate thread to make sure the reaction is posted immediately
-    let ctx_data = ctx.data.clone();
-    thread::Builder::new().name("peter qww action handler".into()).spawn(move || continue_game(ctx_data).expect("failed to continue game"))?;
+    let mut ctx = ctx.clone();
+    thread::Builder::new().name("peter qww action handler".into()).spawn(move || continue_game(&mut ctx).expect("failed to continue game"))?;
     Ok(())
 }
 
@@ -360,11 +357,11 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                 .push("das Spiel ist vorbei: ");
             TEXT_CHANNEL.say(match winners.len() {
                 0 => builder.push("niemand hat gewonnen"),
-                1 => builder.mention(winners.swap_remove(0)).push(" hat gewonnen"),
+                1 => builder.mention(&winners.swap_remove(0)).push(" hat gewonnen"),
                 _ => {
-                    let mut builder = builder.mention(winners.remove(0));
+                    let mut builder = builder.mention(&winners.remove(0));
                     for winner in winners {
-                        builder = builder.push(" ").mention(winner);
+                        builder = builder.push(" ").mention(&winner);
                     }
                     builder.push(" haben gewonnen")
                 }
@@ -461,21 +458,21 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
         "h" | "heal" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Heal(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
                 Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "i" | "inspect" | "investigate" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Investigate(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
                 Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "k" | "kill" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Kill(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
                 Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
@@ -490,7 +487,7 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
                 }
                 match parse_player(ctx, &mut msg) {
                     Ok(tgt) => Ok(Action::Vote(src, Vote::Player(tgt))),
-                    Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(user_id).push(" spielt nicht mit").build())),
+                    Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
                     Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
                 }
             }

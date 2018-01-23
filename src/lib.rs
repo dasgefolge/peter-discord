@@ -7,7 +7,6 @@
 
 #[macro_use] extern crate lazy_static;
 extern crate num;
-extern crate parking_lot;
 extern crate quantum_werewolf;
 extern crate rand;
 extern crate regex;
@@ -17,8 +16,14 @@ extern crate typemap;
 #[macro_use] extern crate wrapped_enum;
 
 use std::{fmt, io};
+use std::sync::Arc;
 
-use serenity::model::{GuildId, UserIdParseError};
+use serenity::client::bridge::gateway::ShardManager;
+use serenity::model::id::GuildId;
+use serenity::model::misc::UserIdParseError;
+use serenity::prelude::*;
+
+use typemap::Key;
 
 pub mod bitbar;
 pub mod commands;
@@ -40,8 +45,6 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
-        Poison(::std::sync::PoisonError<()>),
-        #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
         #[allow(missing_docs)]
         Serenity(serenity::Error),
@@ -57,7 +60,6 @@ impl fmt::Display for Error {
         match *self {
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
-            Error::Poison(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
             Error::UserIdParse(ref e) => e.fmt(f),
@@ -68,3 +70,17 @@ impl fmt::Display for Error {
 
 #[allow(missing_docs)]
 pub type Result<T> = ::std::result::Result<T, Error>;
+
+/// `typemap` key for the serenity shard manager.
+pub struct ShardManagerContainer;
+
+impl Key for ShardManagerContainer {
+    type Value = Arc<Mutex<ShardManager>>;
+}
+
+/// Utility function to shut down all shards.
+pub fn shut_down(ctx: &Context) {
+    let data = ctx.data.lock();
+    let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock();
+    shard_manager.shutdown_all();
+}

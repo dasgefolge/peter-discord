@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::prelude::*;
 
-use serenity::model::User;
+use serenity::model::user::User;
 
 use typemap::Key;
 

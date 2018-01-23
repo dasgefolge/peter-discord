@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use serenity::model::UserId;
+use serenity::model::id::UserId;
 
 #[allow(missing_docs)]
 pub fn eat_user_mention(subj: &mut &str) -> Option<UserId> {
