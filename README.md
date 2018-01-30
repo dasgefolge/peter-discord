@@ -2,6 +2,6 @@
 
 # Features
 
-* [Quantum Werewolf](https://github.com/fenhl/quantum-werewolf) moderation
+* [Quantum Werewolf](https://github.com/dasgefolge/quantum-werewolf) moderation
 * reaction-based polls
 * maintains the access list for [gefolge.org](https://github.com/dasgefolge/gefolge.org)
