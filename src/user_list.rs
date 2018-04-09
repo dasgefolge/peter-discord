@@ -52,3 +52,10 @@ pub fn set<I: IntoIterator<Item=Member>>(members: I) -> ::Result<()> {
     }
     Ok(())
 }
+
+/// Update the data for a guild member. Equivalent to `remove` followed by `add`.
+pub fn update(member: Member) -> ::Result<()> {
+    remove(&member)?;
+    add(member)?;
+    Ok(())
+}

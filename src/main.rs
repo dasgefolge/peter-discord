@@ -104,6 +104,10 @@ impl EventHandler for Handler {
         user_list::remove(user).expect("failed to remove removed guild member from user list");
     }
 
+    fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
+        user_list::update(member).expect("failed to update guild member info in user list");
+    }
+
     fn guild_members_chunk(&self, _: Context, _: GuildId, members: HashMap<UserId, Member>) {
         for member in members.values() {
             user_list::add(member.clone()).expect("failed to add chunk of guild members to user list");
