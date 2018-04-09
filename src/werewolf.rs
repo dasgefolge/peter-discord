@@ -2,26 +2,56 @@
 
 #![allow(missing_docs)]
 
-use std::{iter, mem, str, thread};
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
-use std::time::Duration;
+use std::{
+    cmp::Ordering,
+    collections::{
+        HashMap,
+        HashSet
+    },
+    iter,
+    mem,
+    str,
+    thread,
+    time::Duration
+};
 
-use quantum_werewolf::game::{NightAction, NightActionResult, Role};
-use quantum_werewolf::game::state::*;
+use quantum_werewolf::game::{
+    NightAction,
+    NightActionResult,
+    Role,
+    state::*
+};
 
-use rand::{Rng, thread_rng};
+use rand::{
+    Rng,
+    thread_rng
+};
 
-use serenity::prelude::*;
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::{Message, PermissionOverwrite, PermissionOverwriteType};
-use serenity::model::id::{ChannelId, RoleId, UserId};
-use serenity::model::permissions::Permissions;
-use serenity::utils::MessageBuilder;
+use serenity::{
+    framework::standard::{
+        Args,
+        CommandError
+    },
+    model::{
+        channel::{
+            Message,
+            PermissionOverwrite,
+            PermissionOverwriteType
+        },
+        id::{
+            ChannelId,
+            RoleId,
+            UserId
+        },
+        permissions::Permissions
+    },
+    prelude::*,
+    utils::MessageBuilder
+};
 
 use typemap::Key;
 
-use lang::{cardinal, faction_name, faction_name_sg, join, role_gender, role_name};
+use lang::*;
 
 pub const DISCUSSION_ROLE: RoleId = RoleId(379778120850341890);
 pub const TEXT_CHANNEL: ChannelId = ChannelId(378848336255516673);

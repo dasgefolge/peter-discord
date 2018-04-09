@@ -15,13 +15,20 @@ extern crate serenity;
 extern crate typemap;
 #[macro_use] extern crate wrapped_enum;
 
-use std::{fmt, io};
-use std::sync::Arc;
+use std::{
+    fmt,
+    io,
+    sync::Arc
+};
 
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::model::id::GuildId;
-use serenity::model::misc::UserIdParseError;
-use serenity::prelude::*;
+use serenity::{
+    client::bridge::gateway::ShardManager,
+    model::{
+        id::GuildId,
+        misc::UserIdParseError,
+    },
+    prelude::*
+};
 
 use typemap::Key;
 

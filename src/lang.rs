@@ -6,7 +6,10 @@ use std::fmt;
 
 use num::One;
 
-use quantum_werewolf::game::{Faction, Role};
+use quantum_werewolf::game::{
+    Faction,
+    Role
+};
 
 pub fn join<D: fmt::Display, I: IntoIterator<Item=D>>(empty: Option<D>, words: I) -> String {
     let mut words = words.into_iter().map(|word| word.to_string()).collect::<Vec<_>>();

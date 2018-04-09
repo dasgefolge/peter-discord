@@ -4,11 +4,21 @@
 
 use std::sync::Arc;
 
-use rand::{Rng, thread_rng};
+use rand::{
+    Rng,
+    thread_rng
+};
 
-use serenity::prelude::*;
-use serenity::framework::standard::{Args, Command, CommandOptions, CommandError};
-use serenity::model::channel::Message;
+use serenity::{
+    prelude::*,
+    framework::standard::{
+        Args,
+        Command,
+        CommandOptions,
+        CommandError
+    },
+    model::channel::Message
+};
 
 use shut_down;
 

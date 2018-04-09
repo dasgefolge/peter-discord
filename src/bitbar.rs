@@ -1,9 +1,13 @@
 //! Helper functions for the BitBar plugin.
 
-use std::io;
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::prelude::*;
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{
+        self,
+        prelude::*
+    }
+};
 
 use serenity::model::user::User;
 

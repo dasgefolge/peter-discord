@@ -7,25 +7,51 @@ extern crate peter;
 extern crate serenity;
 extern crate typemap;
 
-use std::env;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::Arc;
+use std::{
+    collections::{
+        BTreeMap,
+        HashMap,
+        HashSet
+    },
+    env,
+    sync::Arc
+};
 
 use chrono::prelude::*;
 
-use serenity::prelude::*;
-use serenity::framework::standard::{StandardFramework, help_commands};
-use serenity::model::channel::Message;
-use serenity::model::gateway::Ready;
-use serenity::model::guild::{Guild, Member};
-use serenity::model::id::{GuildId, UserId};
-use serenity::model::permissions::Permissions;
-use serenity::model::user::User;
-use serenity::model::voice::VoiceState;
+use serenity::{
+    framework::standard::{
+        StandardFramework,
+        help_commands
+    },
+    model::{
+        channel::Message,
+        gateway::Ready,
+        guild::{
+            Guild,
+            Member
+        },
+        id::{
+            GuildId,
+            UserId
+        },
+        permissions::Permissions,
+        user::User,
+        voice::VoiceState
+    },
+    prelude::*
+};
 
 use typemap::Key;
 
-use peter::{ShardManagerContainer, bitbar, commands, shut_down, user_list, werewolf};
+use peter::{
+    ShardManagerContainer,
+    bitbar,
+    commands,
+    shut_down,
+    user_list,
+    werewolf
+};
 
 struct Handler;
 
