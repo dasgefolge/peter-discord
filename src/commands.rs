@@ -25,7 +25,7 @@ use shut_down;
 pub fn ping(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
     let mut rng = thread_rng();
     let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5)));
-    msg.reply(if rng.gen_weighted_bool(1024) { &pingception } else { "pong" })?;
+    msg.reply(if rng.gen_bool(0.001) { &pingception } else { "pong" })?;
     Ok(())
 }
 
