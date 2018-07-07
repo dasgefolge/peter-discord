@@ -6,7 +6,7 @@
 #![forbid(unused_import_braces)]
 
 #[macro_use] extern crate lazy_static;
-extern crate num;
+extern crate num_traits;
 extern crate quantum_werewolf;
 extern crate rand;
 extern crate regex;

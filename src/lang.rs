@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use num::One;
+use num_traits::One;
 
 use quantum_werewolf::game::{
     Faction,

@@ -17,7 +17,7 @@ path = "src/lib.rs"
 [dependencies]
 chrono = "*"
 lazy_static = "*"
-num = "*"
+num-traits = "*"
 rand = "*"
 regex = "*"
 serde_json = "*"
