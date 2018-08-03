@@ -153,13 +153,13 @@ impl EventHandler for Handler {
     }
 }
 
-fn main() {
+fn main() -> Result<(), peter::Error> {
     // read config
-    let token = env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN envar");
-    let mut client = Client::new(&token, Handler).expect("failed to create serenity client");
+    let token = env::var("DISCORD_TOKEN")?;
+    let mut client = Client::new(&token, Handler)?;
     let owners = {
         let mut owners = HashSet::default();
-        owners.insert(serenity::http::get_current_application_info().expect("couldn't get application info").owner.id);
+        owners.insert(serenity::http::get_current_application_info()?.owner.id);
         owners
     };
     {
@@ -196,5 +196,6 @@ fn main() {
         .cmd("test", commands::Test)
     );
     // connect to Discord
-    client.start_autosharded().expect("client error");
+    client.start_autosharded()?;
+    Ok(())
 }

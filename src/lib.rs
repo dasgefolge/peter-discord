@@ -16,6 +16,7 @@ extern crate typemap;
 #[macro_use] extern crate wrapped_enum;
 
 use std::{
+    env,
     fmt,
     io,
     sync::Arc
@@ -48,6 +49,8 @@ wrapped_enum! {
     #[derive(Debug)]
     pub enum Error {
         #[allow(missing_docs)]
+        Env(env::VarError),
+        #[allow(missing_docs)]
         GameAction(String),
         #[allow(missing_docs)]
         Io(io::Error),
@@ -65,6 +68,7 @@ wrapped_enum! {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Error::Env(ref e) => e.fmt(f),
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
