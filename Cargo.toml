@@ -22,6 +22,7 @@ rand = "*"
 regex = "*"
 serde_json = "*"
 serenity = "*"
+shlex = "*"
 typemap = "*"
 wrapped_enum = "*"
 

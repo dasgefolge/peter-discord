@@ -61,7 +61,9 @@ wrapped_enum! {
         #[allow(missing_docs)]
         UserIdParse(UserIdParseError),
         #[allow(missing_docs)]
-        Unknown(())
+        Unknown(()),
+        #[allow(missing_docs)]
+        UnknownCommand(Vec<String>)
     }
 }
 
@@ -74,7 +76,8 @@ impl fmt::Display for Error {
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
             Error::UserIdParse(ref e) => e.fmt(f),
-            Error::Unknown(()) => write!(f, "unknown error")
+            Error::Unknown(()) => write!(f, "unknown error"),
+            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
         }
     }
 }

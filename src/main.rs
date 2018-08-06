@@ -5,6 +5,7 @@
 extern crate chrono;
 extern crate peter;
 extern crate serenity;
+extern crate shlex;
 extern crate typemap;
 
 use std::{
@@ -14,7 +15,10 @@ use std::{
         HashSet
     },
     env,
-    sync::Arc
+    io::prelude::*,
+    net::TcpListener,
+    sync::Arc,
+    thread
 };
 
 use chrono::prelude::*;
@@ -195,6 +199,25 @@ fn main() -> Result<(), peter::Error> {
         .cmd("quit", commands::Quit)
         .cmd("test", commands::Test)
     );
+    // listen for IPC commands
+    {
+        thread::spawn(move || -> Result<(), _> { //TODO change to Result<!, _>
+            for stream in TcpListener::bind("127.0.0.1:18807")?.incoming() {
+                let mut stream = stream?;
+                let mut buf = String::default();
+                stream.read_to_string(&mut buf)?;
+                let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
+                match &args[0][..] {
+                    "msg" => {
+                        let rcpt = args[1].parse::<UserId>()?;
+                        rcpt.create_dm_channel()?.say(&args[2])?;
+                    }
+                    _ => { return Err(peter::Error::UnknownCommand(args)); }
+                }
+            }
+            unreachable!();
+        });
+    }
     // connect to Discord
     client.start_autosharded()?;
     Ok(())
