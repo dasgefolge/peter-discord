@@ -62,6 +62,14 @@ impl Command for Quit {
     }
 }
 
+pub fn roll(_: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
+    unimplemented!(); //TODO
+}
+
+pub fn shuffle(_: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
+    unimplemented!(); //TODO
+}
+
 pub struct Test;
 
 impl Command for Test {
