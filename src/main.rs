@@ -16,6 +16,7 @@ use std::{
     },
     env,
     io::prelude::*,
+    iter,
     net::TcpListener,
     sync::Arc,
     thread
@@ -37,6 +38,7 @@ use serenity::{
         },
         id::{
             GuildId,
+            RoleId,
             UserId
         },
         permissions::Permissions,
@@ -49,6 +51,7 @@ use serenity::{
 use typemap::Key;
 
 use peter::{
+    GEFOLGE,
     ShardManagerContainer,
     bitbar,
     commands,
@@ -208,6 +211,12 @@ fn main() -> Result<(), peter::Error> {
                 stream.read_to_string(&mut buf)?;
                 let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
                 match &args[0][..] {
+                    "add-role" => {
+                        let user = args[1].parse::<UserId>()?;
+                        let role = args[2].parse::<RoleId>()?;
+                        let roles = iter::once(role).chain(GEFOLGE.member(user)?.roles.into_iter());
+                        GEFOLGE.edit_member(user, |m| m.roles(roles))?;
+                    }
                     "msg" => {
                         let rcpt = args[1].parse::<UserId>()?;
                         rcpt.create_dm_channel()?.say(&args[2])?;

@@ -26,7 +26,10 @@ use serenity::{
     client::bridge::gateway::ShardManager,
     model::{
         id::GuildId,
-        misc::UserIdParseError,
+        misc::{
+            RoleIdParseError,
+            UserIdParseError
+        },
     },
     prelude::*
 };
@@ -57,6 +60,8 @@ wrapped_enum! {
         #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
         #[allow(missing_docs)]
+        RoleIdParse(RoleIdParseError),
+        #[allow(missing_docs)]
         Serenity(serenity::Error),
         #[allow(missing_docs)]
         UserIdParse(UserIdParseError),
@@ -74,6 +79,7 @@ impl fmt::Display for Error {
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
+            Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
             Error::UserIdParse(ref e) => e.fmt(f),
             Error::Unknown(()) => write!(f, "unknown error"),
