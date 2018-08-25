@@ -7,6 +7,7 @@ extern crate peter;
 extern crate serenity;
 extern crate shlex;
 extern crate typemap;
+extern crate whoami;
 
 use std::{
     collections::{
@@ -18,6 +19,10 @@ use std::{
     io::prelude::*,
     iter,
     net::TcpListener,
+    process::{
+        Command,
+        Stdio
+    },
     sync::Arc,
     thread
 };
@@ -88,7 +93,7 @@ impl EventHandler for Handler {
         let mut chan_map = <bitbar::VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
-                let user = user_id.get().expect("failed to get user info");
+                let user = user_id.to_user().expect("failed to get user info");
                 let users = chan_map.entry(channel_id.name().expect("failed to get channel name"))
                     .or_insert_with(Vec::default);
                 match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
@@ -135,7 +140,7 @@ impl EventHandler for Handler {
     }
 
     fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, voice_state: VoiceState) {
-        let user = voice_state.user_id.get().expect("failed to get user info");
+        let user = voice_state.user_id.to_user().expect("failed to get user info");
         let mut data = ctx.data.lock();
         let chan_map = data.get_mut::<bitbar::VoiceStates>().expect("missing voice states map");
         let mut empty_channels = Vec::default();
@@ -158,6 +163,48 @@ impl EventHandler for Handler {
         }
         bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
     }
+}
+
+fn listen_ipc() -> Result<(), peter::Error> { //TODO change return type to Result<!, peter::Error>
+    for stream in TcpListener::bind("127.0.0.1:18807")?.incoming() {
+        let mut stream = stream?;
+        let mut buf = String::default();
+        stream.read_to_string(&mut buf)?;
+        let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
+        match &args[0][..] {
+            "add-role" => {
+                let user = args[1].parse::<UserId>()?;
+                let role = args[2].parse::<RoleId>()?;
+                let roles = iter::once(role).chain(GEFOLGE.member(user)?.roles.into_iter());
+                GEFOLGE.edit_member(user, |m| m.roles(roles))?;
+            }
+            "msg" => {
+                let rcpt = args[1].parse::<UserId>()?;
+                rcpt.create_dm_channel()?.say(&args[2])?;
+            }
+            _ => { return Err(peter::Error::UnknownCommand(args)); }
+        }
+    }
+    unreachable!();
+}
+
+fn notify_ipc_crash(e: peter::Error) {
+    let mut child = Command::new("ssmtp")
+        .arg("fenhl@fenhl.net")
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn ssmtp");
+    {
+        let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
+        write!(
+            stdin,
+            "To: fenhl@fenhl.net\nFrom: {}@{}\nSubject: Peter IPC thread crashed\n\nPeter IPC thread crashed with the following error:\n{:?}\n",
+            whoami::username(),
+            whoami::hostname(),
+            e
+        ).expect("failed to write to ssmtp stdin");
+    }
+    child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
 }
 
 fn main() -> Result<(), peter::Error> {
@@ -204,27 +251,11 @@ fn main() -> Result<(), peter::Error> {
     );
     // listen for IPC commands
     {
-        thread::spawn(move || -> Result<(), _> { //TODO change to Result<!, _>
-            for stream in TcpListener::bind("127.0.0.1:18807")?.incoming() {
-                let mut stream = stream?;
-                let mut buf = String::default();
-                stream.read_to_string(&mut buf)?;
-                let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
-                match &args[0][..] {
-                    "add-role" => {
-                        let user = args[1].parse::<UserId>()?;
-                        let role = args[2].parse::<RoleId>()?;
-                        let roles = iter::once(role).chain(GEFOLGE.member(user)?.roles.into_iter());
-                        GEFOLGE.edit_member(user, |m| m.roles(roles))?;
-                    }
-                    "msg" => {
-                        let rcpt = args[1].parse::<UserId>()?;
-                        rcpt.create_dm_channel()?.say(&args[2])?;
-                    }
-                    _ => { return Err(peter::Error::UnknownCommand(args)); }
-                }
+        thread::spawn(move || {
+            if let Err(e) = listen_ipc() { //TODO remove `if` after changing from `()` to `!`
+                eprintln!("{:?}", e);
+                notify_ipc_crash(e);
             }
-            unreachable!();
         });
     }
     // connect to Discord

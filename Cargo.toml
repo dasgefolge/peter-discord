@@ -24,6 +24,7 @@ serde_json = "*"
 serenity = "*"
 shlex = "*"
 typemap = "*"
+whoami = "*"
 wrapped_enum = "*"
 
 [dependencies.quantum-werewolf]

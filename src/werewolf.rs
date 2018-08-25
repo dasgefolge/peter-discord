@@ -84,7 +84,7 @@ impl GameState {
         self.alive = if let Some(new_alive) = new_alive {
             let new_alive = new_alive.iter().cloned().collect();
             if let Some(ref old_alive) = self.alive {
-                let mut died = (old_alive - &new_alive).into_iter().map(|user_id| user_id.get()).collect::<::serenity::Result<Vec<_>>>()?;
+                let mut died = (old_alive - &new_alive).into_iter().map(|user_id| user_id.to_user()).collect::<::serenity::Result<Vec<_>>>()?;
                 if !died.is_empty() {
                     died.sort_by_key(|user| (user.name.clone(), user.discriminator));
                     let mut builder = MessageBuilder::default();
@@ -381,7 +381,7 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
             }
         }
         State::Complete(Complete { winners }) => {
-            let mut winners = winners.into_iter().map(|user_id| user_id.get()).collect::<::serenity::Result<Vec<_>>>()?;
+            let mut winners = winners.into_iter().map(|user_id| user_id.to_user()).collect::<::serenity::Result<Vec<_>>>()?;
             winners.sort_by_key(|user| (user.name.clone(), user.discriminator));
             let builder = MessageBuilder::default()
                 .push("das Spiel ist vorbei: ");
@@ -466,7 +466,7 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
             let state_ref = data.get::<GameState>().expect("missing Werewolf game state");
             if let Some(user_ids) = state_ref.state.secret_ids() {
                 if let Some(next_word) = ::parse::next_word(&subj) {
-                    let users = if let Ok(users) = user_ids.iter().map(|user_id| user_id.get()).collect::<::serenity::Result<Vec<_>>>() { users } else { return Err(None); };
+                    let users = if let Ok(users) = user_ids.iter().map(|user_id| user_id.to_user()).collect::<::serenity::Result<Vec<_>>>() { users } else { return Err(None); };
                     let matching_users = user_ids.into_iter().zip(users).filter_map(|(&user_id, user)| if user.name == next_word { Some(user_id) } else { None }).collect::<Vec<_>>();
                     if matching_users.len() == 1 {
                         *subj = &subj[next_word.len()..]; // consume username
