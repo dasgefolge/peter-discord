@@ -68,7 +68,21 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Unknown(()),
         #[allow(missing_docs)]
-        UnknownCommand(Vec<String>)
+        UnknownCommand(Vec<String>),
+        #[allow(missing_docs)]
+        Wrapped((String, Box<Error>))
+    }
+}
+
+/// A helper trait for annotating errors with more informative error messages.
+pub trait IntoResult<T> {
+    /// Annotates an error with an additional message which is displayed along with the error.
+    fn annotate(self, msg: impl Into<String>) -> Result<T>;
+}
+
+impl<T, E: Into<Error>> IntoResult<T> for ::std::result::Result<T, E> {
+    fn annotate(self, msg: impl Into<String>) -> Result<T> {
+        self.map_err(|e| Error::Wrapped((msg.into(), Box::new(e.into()))))
     }
 }
 
@@ -83,7 +97,8 @@ impl fmt::Display for Error {
             Error::Serenity(ref e) => e.fmt(f),
             Error::UserIdParse(ref e) => e.fmt(f),
             Error::Unknown(()) => write!(f, "unknown error"),
-            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
+            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
+            Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
         }
     }
 }

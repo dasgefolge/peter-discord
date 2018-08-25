@@ -57,6 +57,7 @@ use typemap::Key;
 
 use peter::{
     GEFOLGE,
+    IntoResult,
     ShardManagerContainer,
     bitbar,
     commands,
@@ -133,7 +134,7 @@ impl EventHandler for Handler {
                 match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
                     Ok(()) => { msg.react("👀").expect("reaction failed"); }
                     Err(peter::Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
-                    Err(e) => { panic!("failed to handle game action: {:?}", e); }
+                    Err(e) => { panic!("failed to handle game action: {}", e); }
                 }
             }
         }
@@ -173,14 +174,14 @@ fn listen_ipc() -> Result<(), peter::Error> { //TODO change return type to Resul
         let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
         match &args[0][..] {
             "add-role" => {
-                let user = args[1].parse::<UserId>()?;
-                let role = args[2].parse::<RoleId>()?;
-                let roles = iter::once(role).chain(GEFOLGE.member(user)?.roles.into_iter());
-                GEFOLGE.edit_member(user, |m| m.roles(roles))?;
+                let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
+                let roles = iter::once(role).chain(GEFOLGE.member(user).annotate("failed to get member data")?.roles.into_iter());
+                GEFOLGE.edit_member(user, |m| m.roles(roles)).annotate("failed to edit roles")?;
             }
             "msg" => {
-                let rcpt = args[1].parse::<UserId>()?;
-                rcpt.create_dm_channel()?.say(&args[2])?;
+                let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                rcpt.create_dm_channel().annotate("failed to get/create DM channel")?.say(&args[2]).annotate("failed to send DM")?;
             }
             _ => { return Err(peter::Error::UnknownCommand(args)); }
         }
@@ -198,7 +199,7 @@ fn notify_ipc_crash(e: peter::Error) {
         let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
         write!(
             stdin,
-            "To: fenhl@fenhl.net\nFrom: {}@{}\nSubject: Peter IPC thread crashed\n\nPeter IPC thread crashed with the following error:\n{:?}\n",
+            "To: fenhl@fenhl.net\nFrom: {}@{}\nSubject: Peter IPC thread crashed\n\nPeter IPC thread crashed with the following error:\n{}\n",
             whoami::username(),
             whoami::hostname(),
             e
@@ -253,7 +254,7 @@ fn main() -> Result<(), peter::Error> {
     {
         thread::spawn(move || {
             if let Err(e) = listen_ipc() { //TODO remove `if` after changing from `()` to `!`
-                eprintln!("{:?}", e);
+                eprintln!("{}", e);
                 notify_ipc_crash(e);
             }
         });
