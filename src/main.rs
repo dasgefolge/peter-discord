@@ -24,7 +24,8 @@ use std::{
         Stdio
     },
     sync::Arc,
-    thread
+    thread,
+    time::Duration
 };
 
 use chrono::prelude::*;
@@ -252,14 +253,15 @@ fn main() -> Result<(), peter::Error> {
     );
     // listen for IPC commands
     {
-        thread::spawn(move || {
+        thread::Builder::new().name("Peter IPC".into()).spawn(move || {
             if let Err(e) = listen_ipc() { //TODO remove `if` after changing from `()` to `!`
                 eprintln!("{}", e);
                 notify_ipc_crash(e);
             }
-        });
+        })?;
     }
     // connect to Discord
     client.start_autosharded()?;
+    thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
     Ok(())
 }
