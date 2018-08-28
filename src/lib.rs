@@ -115,6 +115,7 @@ impl Key for ShardManagerContainer {
 
 /// Utility function to shut down all shards.
 pub fn shut_down(ctx: &Context) {
+    ctx.invisible(); // hack to prevent the bot showing as online when it's not
     let data = ctx.data.lock();
     let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock();
     shard_manager.shutdown_all();
