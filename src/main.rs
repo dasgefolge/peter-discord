@@ -239,6 +239,7 @@ fn main() -> Result<(), peter::Error> {
             }
         })
         .unrecognised_command(|ctx, msg, _| {
+            if msg.author.bot { return; } // ignore bots to prevent message loops
             if msg.is_private() {
                 if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content) {
                     match action.and_then(|action| werewolf::handle_action(ctx, action)) {
