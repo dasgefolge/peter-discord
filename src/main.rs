@@ -130,7 +130,7 @@ impl EventHandler for Handler {
 
     fn message(&self, mut ctx: Context, msg: Message) {
         if msg.author.bot { return; } // ignore bots to prevent message loops
-        if msg.channel_id == werewolf::TEXT_CHANNEL || msg.author.create_dm_channel().ok().map_or(false, |dm| dm.id == msg.channel_id) {
+        if msg.channel_id == werewolf::TEXT_CHANNEL {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                 match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
                     Ok(()) => { msg.react("👀").expect("reaction failed"); }
@@ -228,6 +228,7 @@ fn main() -> Result<(), peter::Error> {
         .configure(|c| c
             .allow_whitespace(true) // allow ! command
             .case_insensitivity(true) // allow !Command
+            .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
             .on_mention(true) // allow @peter command
             .owners(owners)
             .prefix("!") // allow !command
@@ -235,6 +236,20 @@ fn main() -> Result<(), peter::Error> {
         .after(|_, _, command_name, result| {
             if let Err(why) = result {
                 println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
+            }
+        })
+        .unrecognised_command(|ctx, msg, _| {
+            if msg.is_private() {
+                if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content) {
+                    match action.and_then(|action| werewolf::handle_action(ctx, action)) {
+                        Ok(()) => { msg.react("👀").expect("reaction failed"); }
+                        Err(peter::Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
+                        Err(e) => { panic!("failed to handle game action: {}", e); }
+                    }
+                } else {
+                    // reply when command isn't recognized
+                    msg.reply("ich habe diese Nachricht nicht verstanden").expect("failed to reply to unrecognized DM");
+                }
             }
         })
         .help(help_commands::with_embeds)
