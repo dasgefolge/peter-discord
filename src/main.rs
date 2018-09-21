@@ -43,6 +43,7 @@ use serenity::{
             Member
         },
         id::{
+            ChannelId,
             GuildId,
             RoleId,
             UserId
@@ -179,6 +180,10 @@ fn listen_ipc() -> Result<(), peter::Error> { //TODO change return type to Resul
                 let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
                 let roles = iter::once(role).chain(GEFOLGE.member(user).annotate("failed to get member data")?.roles.into_iter());
                 GEFOLGE.edit_member(user, |m| m.roles(roles)).annotate("failed to edit roles")?;
+            }
+            "channel-msg" => {
+                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
+                channel.say(&args[2]).annotate("failed to send channel message")?;
             }
             "msg" => {
                 let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;

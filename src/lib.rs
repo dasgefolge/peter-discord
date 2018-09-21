@@ -27,6 +27,7 @@ use serenity::{
     model::{
         id::GuildId,
         misc::{
+            ChannelIdParseError,
             RoleIdParseError,
             UserIdParseError
         },
@@ -51,6 +52,8 @@ wrapped_enum! {
     #[allow(missing_docs)]
     #[derive(Debug)]
     pub enum Error {
+        #[allow(missing_docs)]
+        ChannelIdParse(ChannelIdParseError),
         #[allow(missing_docs)]
         Env(env::VarError),
         #[allow(missing_docs)]
@@ -89,6 +92,7 @@ impl<T, E: Into<Error>> IntoResult<T> for ::std::result::Result<T, E> {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Error::ChannelIdParse(ref e) => e.fmt(f),
             Error::Env(ref e) => e.fmt(f),
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
