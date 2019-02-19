@@ -9,9 +9,8 @@ use std::{
     mem,
     str::FromStr
 };
-
+use lazy_static::lazy_static;
 use regex::Regex;
-
 use serenity::model::{
     channel::ReactionType,
     misc::EmojiIdentifier

@@ -5,7 +5,10 @@ use std::{
     fs::File,
     io
 };
-use serde_json;
+use serde_json::{
+    self,
+    json
+};
 use serenity::model::user::User;
 use typemap::Key;
 

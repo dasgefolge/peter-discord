@@ -5,23 +5,12 @@
 #![deny(unused, missing_docs, unused_qualifications)]
 #![forbid(unused_import_braces)]
 
-#[macro_use] extern crate lazy_static;
-extern crate num_traits;
-extern crate quantum_werewolf;
-extern crate rand;
-extern crate regex;
-#[macro_use] extern crate serde_json;
-extern crate serenity;
-extern crate typemap;
-#[macro_use] extern crate wrapped_enum;
-
 use std::{
     env,
     fmt,
     io,
     sync::Arc
 };
-
 use serenity::{
     client::bridge::gateway::ShardManager,
     model::{
@@ -34,8 +23,8 @@ use serenity::{
     },
     prelude::*
 };
-
 use typemap::Key;
+use wrapped_enum::wrapped_enum;
 
 pub mod bitbar;
 pub mod commands;
@@ -83,7 +72,7 @@ pub trait IntoResult<T> {
     fn annotate(self, msg: impl Into<String>) -> Result<T>;
 }
 
-impl<T, E: Into<Error>> IntoResult<T> for ::std::result::Result<T, E> {
+impl<T, E: Into<Error>> IntoResult<T> for std::result::Result<T, E> {
     fn annotate(self, msg: impl Into<String>) -> Result<T> {
         self.map_err(|e| Error::Wrapped((msg.into(), Box::new(e.into()))))
     }
@@ -108,7 +97,7 @@ impl fmt::Display for Error {
 }
 
 #[allow(missing_docs)]
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// `typemap` key for the serenity shard manager.
 pub struct ShardManagerContainer;

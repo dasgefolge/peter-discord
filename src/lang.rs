@@ -3,9 +3,7 @@
 #![allow(missing_docs)] //TODO remove
 
 use std::fmt;
-
 use num_traits::One;
-
 use quantum_werewolf::game::{
     Faction,
     Role

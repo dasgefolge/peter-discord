@@ -1,7 +1,6 @@
 //! Utilities for parsing messages into commands and game actions
 
 use std::str::FromStr;
-
 use serenity::model::id::UserId;
 
 #[allow(missing_docs)]

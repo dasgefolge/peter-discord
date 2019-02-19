@@ -14,19 +14,16 @@ use std::{
     thread,
     time::Duration
 };
-
 use quantum_werewolf::game::{
     NightAction,
     NightActionResult,
     Role,
     state::*
 };
-
 use rand::{
     Rng,
     thread_rng
 };
-
 use serenity::{
     framework::standard::{
         Args,
@@ -48,10 +45,14 @@ use serenity::{
     prelude::*,
     utils::MessageBuilder
 };
-
 use typemap::Key;
-
-use lang::*;
+use crate::{
+    Error,
+    GEFOLGE,
+    Result,
+    lang::*,
+    parse
+};
 
 pub const DISCUSSION_ROLE: RoleId = RoleId(379778120850341890);
 pub const TEXT_CHANNEL: ChannelId = ChannelId(378848336255516673);
@@ -80,7 +81,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    fn announce_deaths(&mut self, new_alive: Option<HashSet<UserId>>) -> ::Result<()> {
+    fn announce_deaths(&mut self, new_alive: Option<HashSet<UserId>>) -> Result<()> {
         self.alive = if let Some(new_alive) = new_alive {
             let new_alive = new_alive.iter().cloned().collect();
             if let Some(ref old_alive) = self.alive {
@@ -90,8 +91,8 @@ impl GameState {
                     let mut builder = MessageBuilder::default();
                     for (i, dead_player) in died.into_iter().enumerate() {
                         // update permissions
-                        let roles = ::GEFOLGE.member(dead_player.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
-                        ::GEFOLGE.edit_member(dead_player.clone(), |m| m.roles(roles))?;
+                        let roles = GEFOLGE.member(dead_player.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
+                        GEFOLGE.edit_member(dead_player.clone(), |m| m.roles(roles))?;
                         // add to announcement
                         if i > 0 {
                             builder = builder.push(" ");
@@ -102,7 +103,7 @@ impl GameState {
                         if let Some(role) = self.state.role(&dead_player.id) {
                             builder = builder
                                 .push(" und war ")
-                                .push_safe(role_name(role, ::lang::Nom, false));
+                                .push_safe(role_name(role, Nom, false));
                         }
                         builder = builder.push(".");
                     }
@@ -125,7 +126,7 @@ impl GameState {
         self.timeouts[timeout_idx] = false;
     }
 
-    fn resolve_day(&mut self, day: Day<UserId>) -> ::Result<()> {
+    fn resolve_day(&mut self, day: Day<UserId>) -> Result<()> {
         self.cancel_all_timeouts();
         // close discussion
         TEXT_CHANNEL.delete_permission(PermissionOverwriteType::Role(DISCUSSION_ROLE))?;
@@ -150,7 +151,7 @@ impl GameState {
         Ok(())
     }
 
-    fn resolve_night(&mut self, night: Night<UserId>) -> ::Result<State<UserId>> {
+    fn resolve_night(&mut self, night: Night<UserId>) -> Result<State<UserId>> {
         self.cancel_all_timeouts();
         let result = night.resolve_nar(&self.night_actions);
         self.night_actions = Vec::default();
@@ -161,7 +162,7 @@ impl GameState {
                     NightActionResult::Investigation(faction) => {
                         let dm = MessageBuilder::default()
                             .push("Ergebnis deiner Nachtaktion: ")
-                            .push_safe(faction_name(faction, ::lang::Nom))
+                            .push_safe(faction_name(faction, Nom))
                             .build();
                         player.create_dm_channel()?.say(&dm)?;
                     }
@@ -172,7 +173,7 @@ impl GameState {
         Ok(result)
     }
 
-    fn start_day(&self, day: &Day<UserId>) -> ::Result<()> {
+    fn start_day(&self, day: &Day<UserId>) -> Result<()> {
         // announce probability table
         let mut builder = MessageBuilder::default()
             .push("Die aktuelle Wahrscheinlichkeitsverteilung:");
@@ -182,7 +183,7 @@ impl GameState {
                     format!("{}: {}% Dorf, {}% Werwolf, {}% tot", player_idx + 1, (village_ratio * 100.0).round() as u8, (werewolves_ratio * 100.0).round() as u8, (dead_ratio * 100.0).round() as u8)
                 }
                 Err(faction) => {
-                    format!("{}: tot (war {})", player_idx + 1, faction_name_sg(faction, ::lang::Nom))
+                    format!("{}: tot (war {})", player_idx + 1, faction_name_sg(faction, Nom))
                 }
             });
         }
@@ -196,13 +197,13 @@ impl GameState {
         let lynch_votes = day.alive().len() / 2 + 1;
         let builder = MessageBuilder::default()
             .push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ")
-            .push_safe(::lang::cardinal(lynch_votes, ::lang::Dat, ::lang::F))
+            .push_safe(cardinal(lynch_votes, Dat, F))
             .push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
         TEXT_CHANNEL.say(builder)?;
         Ok(())
     }
 
-    fn start_night(&self, _: &Night<UserId>) -> ::Result<()> {
+    fn start_night(&self, _: &Night<UserId>) -> Result<()> {
         TEXT_CHANNEL.say("Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
         Ok(())
     }
@@ -240,8 +241,8 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comma
                 return Ok(());
             }
             // add DISCUSSION_ROLE
-            let roles = iter::once(DISCUSSION_ROLE).chain(::GEFOLGE.member(msg.author.clone())?.roles.into_iter());
-            ::GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
+            let roles = iter::once(DISCUSSION_ROLE).chain(GEFOLGE.member(msg.author.clone())?.roles.into_iter());
+            GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
             msg.react("✅")?;
         } else {
             msg.reply("bitte warte, bis das aktuelle Spiel vorbei ist")?;
@@ -265,8 +266,8 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
                 return Ok(());
             }
             // remove DISCUSSION_ROLE
-            let roles = ::GEFOLGE.member(msg.author.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
-            ::GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
+            let roles = GEFOLGE.member(msg.author.clone())?.roles.into_iter().filter(|&role| role != DISCUSSION_ROLE);
+            GEFOLGE.edit_member(msg.author.clone(), |m| m.roles(roles))?;
             msg.react("✅")?;
         } else {
             msg.reply("bitte warte, bis das aktuelle Spiel vorbei ist")?; //TODO implement forfeiting
@@ -277,7 +278,7 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> Result<(), Comm
     Ok(())
 }
 
-fn continue_game(ctx: &mut Context) -> ::Result<()> {
+fn continue_game(ctx: &mut Context) -> Result<()> {
     let (mut timeout_idx, mut sleep_duration) = {
         let mut data = ctx.data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
@@ -310,7 +311,7 @@ fn continue_game(ctx: &mut Context) -> ::Result<()> {
 /// If the action was valid, returns `Ok`.
 ///
 /// A return value of `Error::GameAction` indicates an invalid action. Other return values are internal errors.
-pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<()> {
+pub fn handle_action(ctx: &mut Context, action: Action) -> Result<()> {
     {
         let mut data = ctx.data.lock();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
@@ -318,24 +319,24 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<()> {
             State::Night(ref night) => {
                 match action {
                     Action::Night(night_action) => {
-                        if !night.secret_ids().contains(night_action.src()) { return Err(::Error::GameAction("du spielst nicht mit".into())); }
+                        if !night.secret_ids().contains(night_action.src()) { return Err(Error::GameAction("du spielst nicht mit".into())); }
                         state_ref.night_actions.push(night_action);
                     }
-                    Action::Vote(_, _) | Action::Unvote(_) => { return Err(::Error::GameAction("aktuell läuft keine Abstimmung".into())); }
+                    Action::Vote(_, _) | Action::Unvote(_) => { return Err(Error::GameAction("aktuell läuft keine Abstimmung".into())); }
                 }
             }
             State::Day(ref day) => match action {
                 Action::Vote(src_id, vote) => {
-                    if !day.alive().contains(&src_id) { return Err(::Error::GameAction("tote Spieler können nicht abstimmen".into())); }
+                    if !day.alive().contains(&src_id) { return Err(Error::GameAction("tote Spieler können nicht abstimmen".into())); }
                     state_ref.votes.insert(src_id, vote);
                 }
                 Action::Unvote(src_id) => {
-                    if !day.alive().contains(&src_id) { return Err(::Error::GameAction("tote Spieler können nicht abstimmen".into())); }
+                    if !day.alive().contains(&src_id) { return Err(Error::GameAction("tote Spieler können nicht abstimmen".into())); }
                     state_ref.votes.remove(&src_id);
                 }
-                Action::Night(..) => { return Err(::Error::GameAction("es ist Tag".into())); }
+                Action::Night(..) => { return Err(Error::GameAction("es ist Tag".into())); }
             }
-            State::Signups(_) | State::Complete(_) => { return Err(::Error::GameAction("aktuell läuft kein Spiel".into())); }
+            State::Signups(_) | State::Complete(_) => { return Err(Error::GameAction("aktuell läuft kein Spiel".into())); }
         }
     }
     // continue game in separate thread to make sure the reaction is posted immediately
@@ -344,7 +345,7 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> ::Result<()> {
     Ok(())
 }
 
-fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
+fn handle_game_state(state_ref: &mut GameState) -> Result<Option<Duration>> {
     let new_alive = { state_ref.state.alive().map(|new_alive| new_alive.into_iter().cloned().collect()) };
     state_ref.announce_deaths(new_alive)?;
     let state = mem::replace(&mut state_ref.state, State::default());
@@ -381,7 +382,7 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
             }
         }
         State::Complete(Complete { winners }) => {
-            let mut winners = winners.into_iter().map(|user_id| user_id.to_user()).collect::<::serenity::Result<Vec<_>>>()?;
+            let mut winners = winners.into_iter().map(|user_id| user_id.to_user()).collect::<serenity::Result<Vec<_>>>()?;
             winners.sort_by_key(|user| (user.name.clone(), user.discriminator));
             let builder = MessageBuilder::default()
                 .push("das Spiel ist vorbei: ");
@@ -397,9 +398,9 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                 }
             })?;
             // unlock channel
-            let everyone = RoleId(::GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
+            let everyone = RoleId(GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
             TEXT_CHANNEL.delete_permission(PermissionOverwriteType::Role(everyone))?;
-            for mut member in ::GEFOLGE.members::<UserId>(None, None)? {
+            for mut member in GEFOLGE.members::<UserId>(None, None)? {
                 if member.roles().map_or(false, |roles| roles.into_iter().any(|role| role.id == DISCUSSION_ROLE)) {
                     member.remove_role(DISCUSSION_ROLE)?;
                 }
@@ -410,7 +411,7 @@ fn handle_game_state(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
     })
 }
 
-fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
+fn handle_timeout(state_ref: &mut GameState) -> Result<Option<Duration>> {
     let state = mem::replace(&mut state_ref.state, State::default());
     state_ref.state = match state {
         State::Signups(signups) => {
@@ -418,7 +419,7 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
                 State::Signups(signups)
             } else {
                 // lock channel
-                let everyone = RoleId(::GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
+                let everyone = RoleId(GEFOLGE.0); // Gefolge @everyone role, same ID as the guild
                 TEXT_CHANNEL.create_permission(&PermissionOverwrite {
                     kind: PermissionOverwriteType::Role(everyone),
                     allow: Permissions::empty(),
@@ -457,16 +458,16 @@ fn handle_timeout(state_ref: &mut GameState) -> ::Result<Option<Duration>> {
     handle_game_state(state_ref)
 }
 
-pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::Result<Action>> {
+pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Result<Action>> {
     fn parse_player(ctx: &mut Context, subj: &mut &str) -> Result<UserId, Option<UserId>> {
-        if let Some(user_id) = ::parse::eat_user_mention(subj) {
+        if let Some(user_id) = parse::eat_user_mention(subj) {
             if player_in_game(ctx, user_id) { Ok(user_id) } else { Err(Some(user_id)) }
         } else {
             let data = ctx.data.lock();
             let state_ref = data.get::<GameState>().expect("missing Werewolf game state");
             if let Some(user_ids) = state_ref.state.secret_ids() {
-                if let Some(next_word) = ::parse::next_word(&subj) {
-                    let users = if let Ok(users) = user_ids.iter().map(|user_id| user_id.to_user()).collect::<::serenity::Result<Vec<_>>>() { users } else { return Err(None); };
+                if let Some(next_word) = parse::next_word(&subj) {
+                    let users = if let Ok(users) = user_ids.iter().map(|user_id| user_id.to_user()).collect::<serenity::Result<Vec<_>>>() { users } else { return Err(None); };
                     let matching_users = user_ids.into_iter().zip(users).filter_map(|(&user_id, user)| if user.name == next_word { Some(user_id) } else { None }).collect::<Vec<_>>();
                     if matching_users.len() == 1 {
                         *subj = &subj[next_word.len()..]; // consume username
@@ -481,29 +482,29 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
 
     // A simple parser for game actions.
     if msg.starts_with('!') { msg = &msg[1..] } // remove leading `!`, if any
-    let cmd_name = if let Some(cmd_name) = ::parse::next_word(&msg) { cmd_name } else { return None; };
+    let cmd_name = if let Some(cmd_name) = parse::next_word(&msg) { cmd_name } else { return None; };
     msg = &msg[cmd_name.len()..]; // consume command name
-    ::parse::eat_whitespace(&mut msg);
+    parse::eat_whitespace(&mut msg);
     Some(match &cmd_name[..] {
         "h" | "heal" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Heal(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
-                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "i" | "inspect" | "investigate" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Investigate(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
-                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "k" | "kill" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Kill(src, tgt))),
-                Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
-                Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "sleep" => unimplemented!(), //TODO if *this player's* mandatory night actions are complete, note that the player is done submitting night actions. otherwise, reply with an error
@@ -517,8 +518,8 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<::R
                 }
                 match parse_player(ctx, &mut msg) {
                     Ok(tgt) => Ok(Action::Vote(src, Vote::Player(tgt))),
-                    Err(Some(user_id)) => Err(::Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
-                    Err(None) => Err(::Error::GameAction("kann das Ziel nicht lesen".into()))
+                    Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                    Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
                 }
             }
         }
@@ -551,15 +552,15 @@ pub fn quantum_role_dm(roles: &[Role], num_players: usize, secret_id: usize) -> 
         *role_counts.entry(normalized_role).or_insert(0) += 1;
     }
     let mut role_count_list = role_counts.clone().into_iter().collect::<Vec<_>>();
-    role_count_list.sort_by_key(|&(role, _)| role_name(role, ::lang::Nom, false));
+    role_count_list.sort_by_key(|&(role, _)| role_name(role, Nom, false));
     builder = builder
         .push("Du bist eine ")
         .push_bold_safe(format!("Quantenüberlagerung aus {}", join(None, role_count_list.into_iter().map(|(role, count)| {
-            let card = cardinal(count as u64, ::lang::Dat, role_gender(role));
+            let card = cardinal(count as u64, Dat, role_gender(role));
             if let Role::Werewolf(_) = role {
                 format!("{} {}", card, if count == 1 { "Werwolf" } else { "Werwölfen" })
             } else {
-                format!("{} {}", card, role_name(role, ::lang::Dat, count != 1))
+                format!("{} {}", card, role_name(role, Dat, count != 1))
             }
         }))))
         .push(".")

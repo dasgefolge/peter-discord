@@ -2,13 +2,6 @@
 #![deny(unused)]
 #![forbid(unused_import_braces)]
 
-extern crate chrono;
-extern crate peter;
-extern crate serenity;
-extern crate shlex;
-extern crate typemap;
-extern crate whoami;
-
 use std::{
     collections::{
         BTreeMap,
@@ -27,9 +20,7 @@ use std::{
     thread,
     time::Duration
 };
-
 use chrono::prelude::*;
-
 use serenity::{
     framework::standard::{
         StandardFramework,
@@ -54,9 +45,7 @@ use serenity::{
     },
     prelude::*
 };
-
 use typemap::Key;
-
 use peter::{
     GEFOLGE,
     IntoResult,
