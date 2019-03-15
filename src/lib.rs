@@ -8,7 +8,12 @@
 use std::{
     env,
     fmt,
-    io,
+    io::{
+        self,
+        BufReader,
+        prelude::*
+    },
+    net::TcpStream,
     sync::Arc
 };
 use serenity::{
@@ -37,6 +42,36 @@ pub mod werewolf;
 /// The Gefolge guild's ID.
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 
+/// The address and port where the bot listens for IPC commands.
+pub const IPC_ADDR: &str = "127.0.0.1:18807";
+
+/// A collection of possible errors not simply forwarded from other libraries.
+#[derive(Debug)]
+pub enum OtherError {
+    /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
+    MissingContext,
+    /// Returned by the user list handler if a user has no join date.
+    MissingJoinDate,
+    /// The reply to an IPC command did not end in a newline.
+    MissingNewline,
+    /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
+    Shlex,
+    /// Returned from `listen_ipc` if an unknown command is received.
+    UnknownCommand(Vec<String>)
+}
+
+impl fmt::Display for OtherError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            OtherError::MissingContext => write!(f, "Serenity context not available before ready event"),
+            OtherError::MissingJoinDate => write!(f, "encountered user without join date"),
+            OtherError::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
+            OtherError::Shlex => write!(f, "failed to parse IPC command line"),
+            OtherError::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
+        }
+    }
+}
+
 wrapped_enum! {
     #[allow(missing_docs)]
     #[derive(Debug)]
@@ -50,6 +85,10 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
+        Json(serde_json::Error),
+        #[allow(missing_docs)]
+        Other(OtherError),
+        #[allow(missing_docs)]
         QwwStartGame(quantum_werewolf::game::state::StartGameError),
         #[allow(missing_docs)]
         RoleIdParse(RoleIdParseError),
@@ -57,10 +96,6 @@ wrapped_enum! {
         Serenity(serenity::Error),
         #[allow(missing_docs)]
         UserIdParse(UserIdParseError),
-        #[allow(missing_docs)]
-        Unknown(()),
-        #[allow(missing_docs)]
-        UnknownCommand(Vec<String>),
         #[allow(missing_docs)]
         Wrapped((String, Box<Error>))
     }
@@ -85,12 +120,12 @@ impl fmt::Display for Error {
             Error::Env(ref e) => e.fmt(f),
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
+            Error::Json(ref e) => e.fmt(f),
+            Error::Other(ref e) => e.fmt(f),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
             Error::UserIdParse(ref e) => e.fmt(f),
-            Error::Unknown(()) => write!(f, "unknown error"),
-            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
         }
     }
@@ -104,6 +139,18 @@ pub struct ShardManagerContainer;
 
 impl Key for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
+}
+
+/// Sends an IPC command to the bot.
+///
+/// **TODO:** document available IPC commands
+pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> Result<String, Error> {
+    let mut stream = TcpStream::connect(IPC_ADDR)?;
+    writeln!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
+    let mut buf = String::default();
+    BufReader::new(stream).read_line(&mut buf)?;
+    if buf.pop() != Some('\n') { return Err(OtherError::MissingNewline.into()) }
+    Ok(buf)
 }
 
 /// Utility function to shut down all shards.

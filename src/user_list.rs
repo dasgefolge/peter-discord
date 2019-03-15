@@ -16,7 +16,7 @@ use serenity::model::{
     id::UserId
 };
 use crate::{
-    Error,
+    OtherError,
     Result
 };
 
@@ -29,7 +29,7 @@ pub fn add(member: Member) -> Result<()> {
     write!(f, "{:#}", json!({
         "bot": user.bot,
         "discriminator": user.discriminator,
-        "joined": if let Some(join_date) = member.joined_at { join_date } else { return Err(Error::Unknown(())) },
+        "joined": if let Some(join_date) = member.joined_at { join_date } else { return Err(OtherError::MissingJoinDate.into()) },
         "nick": member.nick,
         "roles": member.roles,
         "snowflake": user.id,

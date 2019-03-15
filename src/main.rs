@@ -9,6 +9,7 @@ use std::{
         HashSet
     },
     env,
+    fs::File,
     io::prelude::*,
     iter,
     net::TcpListener,
@@ -21,6 +22,7 @@ use std::{
     time::Duration
 };
 use chrono::prelude::*;
+use serde_derive::Deserialize;
 use serenity::{
     framework::standard::{
         StandardFramework,
@@ -43,12 +45,16 @@ use serenity::{
         user::User,
         voice::VoiceState
     },
-    prelude::*
+    prelude::*,
+    utils::MessageBuilder
 };
 use typemap::Key;
 use peter::{
     GEFOLGE,
+    Error,
     IntoResult,
+    OtherError,
+    Result,
     ShardManagerContainer,
     bitbar,
     commands,
@@ -57,10 +63,35 @@ use peter::{
     werewolf
 };
 
-struct Handler;
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Config {
+    channels: ConfigChannels,
+    peter: ConfigPeter
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ConfigChannels {
+    voice: ChannelId
+}
+
+impl Key for ConfigChannels {
+    type Value = ConfigChannels;
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ConfigPeter {
+    bot_token: String
+}
+
+#[derive(Default)]
+struct Handler(Arc<Mutex<Option<Context>>>);
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
+        *self.0.lock() = Some(ctx.clone());
         let guilds = ready.user.guilds().expect("failed to get guilds");
         if guilds.is_empty() {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
@@ -124,7 +155,7 @@ impl EventHandler for Handler {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                 match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
                     Ok(()) => { msg.react("👀").expect("reaction failed"); }
-                    Err(peter::Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
+                    Err(Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
                     Err(e) => { panic!("failed to handle game action: {}", e); }
                 }
             }
@@ -135,6 +166,7 @@ impl EventHandler for Handler {
         let user = voice_state.user_id.to_user().expect("failed to get user info");
         let mut data = ctx.data.lock();
         let chan_map = data.get_mut::<bitbar::VoiceStates>().expect("missing voice states map");
+        let was_empty = chan_map.iter().all(|(channel_name, members)| channel_name == "Bibliothek" || members.is_empty());
         let mut empty_channels = Vec::default();
         for (channel_name, users) in chan_map.iter_mut() {
             users.retain(|iter_user| iter_user.id != user.id);
@@ -145,46 +177,62 @@ impl EventHandler for Handler {
         for channel_name in empty_channels {
             chan_map.remove(&channel_name);
         }
-        if let Some(channel_id) = voice_state.channel_id {
+        let chan_id = voice_state.channel_id;
+        if let Some(channel_id) = chan_id {
             let users = chan_map.entry(channel_id.name().expect("failed to get channel name"))
                 .or_insert_with(Vec::default);
             match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
-                Ok(idx) => { users[idx] = user; }
-                Err(idx) => { users.insert(idx, user); }
+                Ok(idx) => { users[idx] = user.clone(); }
+                Err(idx) => { users.insert(idx, user.clone()); }
             }
         }
+        let is_empty = chan_map.iter().all(|(channel_name, members)| channel_name == "Bibliothek" || members.is_empty());
         bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
+        if was_empty && !is_empty {
+            let channel_config = data.get::<ConfigChannels>().expect("missing channels config");
+            channel_config.voice.say(MessageBuilder::default().push("Discord Party? ").mention(&user).push(" ist jetzt im voice channel ").mention(&chan_id.unwrap())).expect("failed to send channel message"); //TODO
+        }
     }
 }
 
-fn listen_ipc() -> Result<(), peter::Error> { //TODO change return type to Result<!, peter::Error>
-    for stream in TcpListener::bind("127.0.0.1:18807")?.incoming() {
+fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO change return type to Result<!>
+    for stream in TcpListener::bind(peter::IPC_ADDR)?.incoming() {
         let mut stream = stream?;
         let mut buf = String::default();
         stream.read_to_string(&mut buf)?;
-        let args = shlex::split(&buf).ok_or(peter::Error::Unknown(()))?;
+        let args = shlex::split(&buf).ok_or(OtherError::Shlex)?;
         match &args[0][..] {
             "add-role" => {
                 let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
                 let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
                 let roles = iter::once(role).chain(GEFOLGE.member(user).annotate("failed to get member data")?.roles.into_iter());
                 GEFOLGE.edit_member(user, |m| m.roles(roles)).annotate("failed to edit roles")?;
+                writeln!(&mut &stream, "role added")?;
             }
             "channel-msg" => {
                 let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
                 channel.say(&args[2]).annotate("failed to send channel message")?;
+                writeln!(&mut &stream, "message sent")?;
             }
             "msg" => {
                 let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
                 rcpt.create_dm_channel().annotate("failed to get/create DM channel")?.say(&args[2]).annotate("failed to send DM")?;
+                writeln!(&mut &stream, "message sent")?;
             }
-            _ => { return Err(peter::Error::UnknownCommand(args)); }
+            "quit" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
+                shut_down(&ctx);
+                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
+                writeln!(&mut &stream, "shutdown complete")?;
+            }
+            _ => { return Err(OtherError::UnknownCommand(args).into()); }
         }
     }
     unreachable!();
 }
 
-fn notify_ipc_crash(e: peter::Error) {
+fn notify_ipc_crash(e: Error) {
     let mut child = Command::new("ssmtp")
         .arg("fenhl@fenhl.net")
         .stdin(Stdio::piped())
@@ -203,74 +251,83 @@ fn notify_ipc_crash(e: peter::Error) {
     child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
 }
 
-fn main() -> Result<(), peter::Error> {
-    // read config
-    let token = env::var("DISCORD_TOKEN")?;
-    let mut client = Client::new(&token, Handler)?;
-    let owners = {
-        let mut owners = HashSet::default();
-        owners.insert(serenity::http::get_current_application_info()?.owner.id);
-        owners
-    };
-    {
-        let mut data = client.data.lock();
-        data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-        data.insert::<bitbar::VoiceStates>(BTreeMap::default());
-        data.insert::<werewolf::GameState>(werewolf::GameState::default());
-    }
-    client.with_framework(StandardFramework::new()
-        .configure(|c| c
-            .allow_whitespace(true) // allow ! command
-            .case_insensitivity(true) // allow !Command
-            .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
-            .on_mention(true) // allow @peter command
-            .owners(owners)
-            .prefix("!") // allow !command
-        )
-        .after(|_, _, command_name, result| {
-            if let Err(why) = result {
-                println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
-            }
-        })
-        .unrecognised_command(|ctx, msg, _| {
-            if msg.is_private() {
-                if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content) {
-                    match action.and_then(|action| werewolf::handle_action(ctx, action)) {
-                        Ok(()) => { msg.react("👀").expect("reaction failed"); }
-                        Err(peter::Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
-                        Err(e) => { panic!("failed to handle game action: {}", e); }
-                    }
-                } else {
-                    // reply when command isn't recognized
-                    msg.reply("ich habe diese Nachricht nicht verstanden").expect("failed to reply to unrecognized DM");
+fn main() -> Result<()> {
+    let mut args = env::args().peekable();
+    let _ = args.next(); // ignore executable name
+    if args.peek().is_some() {
+        println!("{}", peter::send_ipc_command(args)?);
+    } else {
+        // read config
+        let config = serde_json::from_reader::<_, Config>(File::open("/usr/local/share/fidera/config.json")?)?;
+        let handler = Handler::default();
+        let ctx_arc = handler.0.clone();
+        let mut client = Client::new(&config.peter.bot_token, handler)?;
+        let owners = {
+            let mut owners = HashSet::default();
+            owners.insert(serenity::http::get_current_application_info()?.owner.id);
+            owners
+        };
+        {
+            let mut data = client.data.lock();
+            data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
+            data.insert::<ConfigChannels>(config.channels);
+            data.insert::<bitbar::VoiceStates>(BTreeMap::default());
+            data.insert::<werewolf::GameState>(werewolf::GameState::default());
+        }
+        client.with_framework(StandardFramework::new()
+            .configure(|c| c
+                .allow_whitespace(true) // allow ! command
+                .case_insensitivity(true) // allow !Command
+                .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
+                .on_mention(true) // allow @peter command
+                .owners(owners)
+                .prefix("!") // allow !command
+            )
+            .after(|_, _, command_name, result| {
+                if let Err(why) = result {
+                    println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
                 }
-            }
-        })
-        .help(help_commands::with_embeds)
-        .command("in", |c| c
-            .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
-            .exec(werewolf::command_in)
-        )
-        .command("out", |c| c
-            .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
-            .exec(werewolf::command_out)
-        )
-        .cmd("ping", commands::ping)
-        .cmd("poll", commands::poll)
-        .cmd("quit", commands::Quit)
-        .cmd("test", commands::Test)
-    );
-    // listen for IPC commands
-    {
-        thread::Builder::new().name("Peter IPC".into()).spawn(move || {
-            if let Err(e) = listen_ipc() { //TODO remove `if` after changing from `()` to `!`
-                eprintln!("{}", e);
-                notify_ipc_crash(e);
-            }
-        })?;
+            })
+            .unrecognised_command(|ctx, msg, _| {
+                if msg.is_private() {
+                    if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content) {
+                        match action.and_then(|action| werewolf::handle_action(ctx, action)) {
+                            Ok(()) => { msg.react("👀").expect("reaction failed"); }
+                            Err(Error::GameAction(err_msg)) => { msg.reply(&err_msg).expect("failed to reply to game action"); }
+                            Err(e) => { panic!("failed to handle game action: {}", e); }
+                        }
+                    } else {
+                        // reply when command isn't recognized
+                        msg.reply("ich habe diese Nachricht nicht verstanden").expect("failed to reply to unrecognized DM");
+                    }
+                }
+            })
+            .help(help_commands::with_embeds)
+            .command("in", |c| c
+                .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
+                .exec(werewolf::command_in)
+            )
+            .command("out", |c| c
+                .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
+                .exec(werewolf::command_out)
+            )
+            .cmd("ping", commands::ping)
+            .cmd("poll", commands::poll)
+            .cmd("quit", commands::Quit)
+            .cmd("test", commands::Test)
+        );
+        // listen for IPC commands
+        {
+            thread::Builder::new().name("Peter IPC".into()).spawn(move || {
+                if let Err(e) = listen_ipc(ctx_arc) { //TODO remove `if` after changing from `()` to `!`
+                    eprintln!("{}", e);
+                    notify_ipc_crash(e);
+                }
+            })?;
+        }
+        // connect to Discord
+        client.start_autosharded()?;
+        thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
     }
-    // connect to Discord
-    client.start_autosharded()?;
-    thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
     Ok(())
 }
