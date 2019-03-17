@@ -29,19 +29,7 @@ use serenity::{
         Args,
         CommandError
     },
-    model::{
-        channel::{
-            Message,
-            PermissionOverwrite,
-            PermissionOverwriteType
-        },
-        id::{
-            ChannelId,
-            RoleId,
-            UserId
-        },
-        permissions::Permissions
-    },
+    model::prelude::*,
     prelude::*,
     utils::MessageBuilder
 };
@@ -159,10 +147,14 @@ impl GameState {
             // send night action results
             for (player, result) in day.night_action_results() {
                 match result {
-                    NightActionResult::Investigation(faction) => {
+                    NightActionResult::Investigation(target, faction) => {
                         let dm = MessageBuilder::default()
                             .push("Ergebnis deiner Nachtaktion: ")
-                            .push_safe(faction_name(faction, Nom))
+                            .dm_mention(&target.to_user()?)
+                            .push(" gehört ")
+                            .push_safe(zu(faction_gender(faction)))
+                            .push(" ")
+                            .push_safe(faction_name(faction, Dat))
                             .build();
                         player.create_dm_channel()?.say(&dm)?;
                     }
@@ -489,21 +481,21 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Res
         "h" | "heal" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Heal(src, tgt))),
-                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())), //TODO use dm_mention if in DM channel
                 Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "i" | "inspect" | "investigate" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Investigate(src, tgt))),
-                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())), //TODO use dm_mention if in DM channel
                 Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
         "k" | "kill" => {
             match parse_player(ctx, &mut msg) {
                 Ok(tgt) => Ok(Action::Night(NightAction::Kill(src, tgt))),
-                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())), //TODO use dm_mention if in DM channel
                 Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
             }
         }
@@ -518,7 +510,7 @@ pub fn parse_action(ctx: &mut Context, src: UserId, mut msg: &str) -> Option<Res
                 }
                 match parse_player(ctx, &mut msg) {
                     Ok(tgt) => Ok(Action::Vote(src, Vote::Player(tgt))),
-                    Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())),
+                    Err(Some(user_id)) => Err(Error::GameAction(MessageBuilder::default().mention(&user_id).push(" spielt nicht mit").build())), //TODO use dm_mention if in DM channel
                     Err(None) => Err(Error::GameAction("kann das Ziel nicht lesen".into()))
                 }
             }

@@ -8,14 +8,14 @@ use rand::{
     thread_rng
 };
 use serenity::{
-    prelude::*,
     framework::standard::{
         Args,
         Command,
         CommandOptions,
         CommandError
     },
-    model::channel::Message
+    model::channel::Message,
+    prelude::*
 };
 use crate::{
     emoji,

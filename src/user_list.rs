@@ -11,10 +11,7 @@ use std::{
     }
 };
 use serde_json::json;
-use serenity::model::{
-    guild::Member,
-    id::UserId
-};
+use serenity::model::prelude::*;
 use crate::{
     OtherError,
     Result

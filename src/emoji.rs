@@ -11,10 +11,7 @@ use std::{
 };
 use lazy_static::lazy_static;
 use regex::Regex;
-use serenity::model::{
-    channel::ReactionType,
-    misc::EmojiIdentifier
-};
+use serenity::model::prelude::*;
 
 /// An error that can occur while parsing emoji from a message.
 #[derive(Debug)]

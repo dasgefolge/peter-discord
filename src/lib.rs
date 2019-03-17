@@ -18,14 +18,7 @@ use std::{
 };
 use serenity::{
     client::bridge::gateway::ShardManager,
-    model::{
-        id::GuildId,
-        misc::{
-            ChannelIdParseError,
-            RoleIdParseError,
-            UserIdParseError
-        },
-    },
+    model::prelude::*,
     prelude::*
 };
 use typemap::Key;

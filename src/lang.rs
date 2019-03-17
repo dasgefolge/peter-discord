@@ -2,12 +2,94 @@
 
 #![allow(missing_docs)] //TODO remove
 
-use std::fmt;
+use std::{
+    borrow::Cow,
+    fmt
+};
 use num_traits::One;
 use quantum_werewolf::game::{
     Faction,
     Role
 };
+use serenity::{
+    model::user::User,
+    utils::MessageBuilder
+};
+
+pub enum Gender { M, F, N }
+pub enum Case { Nom, Gen, Acc, Dat }
+
+pub use self::Gender::*;
+pub use self::Case::*;
+
+pub trait MessageBuilderExt {
+    fn dm_mention(self, user: &User) -> Self;
+}
+
+impl MessageBuilderExt for MessageBuilder {
+    fn dm_mention(self, user: &User) -> Self {
+        self.mention(user).push_safe(format!(" ({}#{:04})", user.name, user.discriminator))
+    }
+}
+
+pub fn article(case: Case, gender: Option<Gender>) -> &'static str {
+    match (case, gender) {
+        (Nom, Some(M)) | (Gen, Some(F)) | (Gen, None) | (Dat, Some(F)) => "der",
+        (Nom, Some(F)) | (Nom, None) | (Acc, Some(F)) | (Acc, None) => "die",
+        (Nom, Some(N)) | (Acc, Some(N)) => "das",
+        (Gen, Some(M)) | (Gen, Some(N)) => "des",
+        (Acc, Some(M)) | (Dat, None) => "den",
+        (Dat, Some(M)) | (Dat, Some(N)) => "dem"
+    }
+}
+
+pub fn cardinal<N: Eq + One + ToString>(n: N, case: Case, gender: Gender) -> Cow<'static, str> {
+    if n == N::one() {
+        match (case, gender) {
+            (Nom, M) | (Nom, N) | (Acc, N) => "ein",
+            (Nom, F) | (Acc, F) => "eine",
+            (Gen, M) | (Gen, N) => "eines",
+            (Gen, F) | (Dat, F) => "einer",
+            (Acc, M) => "einen",
+            (Dat, M) | (Dat, N) => "einem"
+        }.into()
+    } else {
+        n.to_string().into()
+    }
+}
+
+pub fn faction_gender(faction: Faction) -> Option<Gender> {
+    match faction {
+        Faction::Village => Some(N),
+        Faction::Werewolves => None
+    }
+}
+
+pub fn faction_name(faction: Faction, case: Case) -> &'static str {
+    match faction {
+        Faction::Village => match case {
+            Gen => "Dorfes",
+            _ => "Dorf"
+        },
+        Faction::Werewolves => match case {
+            Dat => "Werwölfen",
+            _ => "Werwölfe"
+        }
+    }
+}
+
+pub fn faction_name_sg(faction: Faction, case: Case) -> &'static str {
+    match faction {
+        Faction::Village => match case {
+            Gen => "Dorfes",
+            _ => "Dorf"
+        },
+        Faction::Werewolves => match case {
+            Dat => "Werwolf",
+            _ => "Werwolf"
+        }
+    }
+}
 
 pub fn join<D: fmt::Display, I: IntoIterator<Item=D>>(empty: Option<D>, words: I) -> String {
     let mut words = words.into_iter().map(|word| word.to_string()).collect::<Vec<_>>();
@@ -25,53 +107,6 @@ pub fn join<D: fmt::Display, I: IntoIterator<Item=D>>(empty: Option<D>, words: I
     }
 }
 
-pub enum Gender { M, F, N }
-pub enum Case { Nom, Gen, Acc, Dat }
-
-pub use self::Gender::*;
-pub use self::Case::*;
-
-pub fn cardinal<N: Eq + One + ToString>(n: N, case: Case, gender: Gender) -> String {
-    if n == N::one() {
-        match (case, gender) {
-            (Nom, M) | (Nom, N) | (Acc, N) => "ein",
-            (Nom, F) | (Acc, F) => "eine",
-            (Gen, M) | (Gen, N) => "eines",
-            (Gen, F) | (Dat, F) => "einer",
-            (Acc, M) => "einen",
-            (Dat, M) | (Dat, N) => "einem"
-        }.to_owned()
-    } else {
-        n.to_string()
-    }
-}
-
-pub fn faction_name(faction: Faction, case: Case) -> String {
-    match faction {
-        Faction::Village => match case {
-            Gen => "Dorfes",
-            _ => "Dorf"
-        }.to_owned(),
-        Faction::Werewolves => match case {
-            Dat => "Werwölfen",
-            _ => "Werwölfe"
-        }.to_owned()
-    }
-}
-
-pub fn faction_name_sg(faction: Faction, case: Case) -> String {
-    match faction {
-        Faction::Village => match case {
-            Gen => "Dorfes",
-            _ => "Dorf"
-        }.to_owned(),
-        Faction::Werewolves => match case {
-            Dat => "Werwolf",
-            _ => "Werwolf"
-        }.to_owned()
-    }
-}
-
 pub fn role_gender(role: Role) -> Gender {
     match role {
         Role::Detective => M,
@@ -81,29 +116,37 @@ pub fn role_gender(role: Role) -> Gender {
     }
 }
 
-pub fn role_name(role: Role, case: Case, plural: bool) -> String {
+pub fn role_name(role: Role, case: Case, plural: bool) -> Cow<'static, str> {
     match role {
         Role::Detective => match (case, plural) {
             (Gen, false) => "Detektivs",
             (_, false) => "Detektiv",
             (Dat, true) => "Detektiven",
             (_, true) => "Detektive"
-        }.to_owned(),
+        }.into(),
         Role::Healer => match (case, plural) {
             (Gen, false) => "Heilers",
             (Dat, true) => "Heilern",
             _ => "Heiler"
-        }.to_owned(),
+        }.into(),
         Role::Villager => match (case, plural) {
             (Gen, false) => "Dorfbewohners",
             (Dat, true) => "Dorfbewohnern",
             _ => "Dorfbewohner"
-        }.to_owned(),
+        }.into(),
         Role::Werewolf(rank) => format!("{} (Rollenrang {})", match (case, plural) {
             (Gen, false) => "Werwolfs",
             (_, false) => "Werwolf",
             (Dat, true) => "Werwölfen",
             (_, true) => "Werwölfe"
-        }, rank + 1)
+        }, rank + 1).into()
+    }
+}
+
+pub fn zu(gender: Option<Gender>) -> Cow<'static, str> {
+    match article(Dat, gender) {
+        "dem" => "zum".into(),
+        "der" => "zur".into(),
+        art => format!("zu {}", art).into()
     }
 }

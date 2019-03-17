@@ -28,23 +28,7 @@ use serenity::{
         StandardFramework,
         help_commands
     },
-    model::{
-        channel::Message,
-        gateway::Ready,
-        guild::{
-            Guild,
-            Member
-        },
-        id::{
-            ChannelId,
-            GuildId,
-            RoleId,
-            UserId
-        },
-        permissions::Permissions,
-        user::User,
-        voice::VoiceState
-    },
+    model::prelude::*,
     prelude::*,
     utils::MessageBuilder
 };
