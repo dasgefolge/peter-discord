@@ -17,7 +17,6 @@ path = "src/lib.rs"
 
 [dependencies]
 chrono = "*"
-chrono-tz = "*"
 itertools = "*"
 lazy_static = "*"
 num-traits = "*"
