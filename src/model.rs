@@ -199,6 +199,7 @@ pub(crate) struct ProgrammpunktData {
     orga: Option<UserId>,
     pub(crate) signups: Vec<u64>,
     start: Option<NaiveDateTime>,
+    #[serde(default)]
     strings: BTreeMap<String, String>,
     pub(crate) targets: Option<BTreeMap<u64, u64>>,
     variant: Option<String>,
