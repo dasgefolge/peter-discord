@@ -291,6 +291,7 @@ fn main() -> Result<()> {
                 .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
                 .exec(werewolf::command_in)
             )
+            .cmd("migrate-guest", commands::MigrateGuest)
             .command("out", |c| c
                 .check(|_, msg, _, _| msg.channel_id == werewolf::TEXT_CHANNEL)
                 .exec(werewolf::command_out)

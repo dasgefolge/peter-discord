@@ -28,6 +28,7 @@ pub mod bitbar;
 pub mod commands;
 pub mod emoji;
 pub mod lang;
+pub mod model;
 pub mod parse;
 pub mod user_list;
 pub mod werewolf;
@@ -123,6 +124,8 @@ impl fmt::Display for Error {
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 #[allow(missing_docs)]
 pub type Result<T, E = Error> = std::result::Result<T, E>;

@@ -17,6 +17,8 @@ path = "src/lib.rs"
 
 [dependencies]
 chrono = "*"
+chrono-tz = "*"
+itertools = "*"
 lazy_static = "*"
 num-traits = "*"
 rand = "*"
@@ -29,6 +31,10 @@ shlex = "*"
 typemap = "*"
 whoami = "*"
 wrapped_enum = "*"
+
+[dependencies.bigdecimal]
+version = "*"
+features = ["serde"]
 
 [dependencies.quantum-werewolf]
 git = "https://github.com/dasgefolge/quantum-werewolf"
