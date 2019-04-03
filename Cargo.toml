@@ -24,7 +24,6 @@ rand = "*"
 regex = "*"
 serde = "1"
 serde_derive = "1"
-serde_json = "1"
 serenity = "*"
 shlex = "*"
 typemap = "*"
@@ -37,3 +36,7 @@ features = ["serde"]
 
 [dependencies.quantum-werewolf]
 git = "https://github.com/dasgefolge/quantum-werewolf"
+
+[dependencies.serde_json]
+version = "1"
+features = ["arbitrary_precision"]
