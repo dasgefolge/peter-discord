@@ -10,7 +10,10 @@ use std::{
     },
     env,
     fs::File,
-    io::prelude::*,
+    io::{
+        BufReader,
+        prelude::*
+    },
     iter,
     net::TcpListener,
     process::{
@@ -181,36 +184,36 @@ impl EventHandler for Handler {
 
 fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO change return type to Result<!>
     for stream in TcpListener::bind(peter::IPC_ADDR)?.incoming() {
-        let mut stream = stream?;
-        let mut buf = String::default();
-        stream.read_to_string(&mut buf)?;
-        let args = shlex::split(&buf).ok_or(OtherError::Shlex)?;
-        match &args[0][..] {
-            "add-role" => {
-                let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
-                let roles = iter::once(role).chain(GEFOLGE.member(user).annotate("failed to get member data")?.roles.into_iter());
-                GEFOLGE.edit_member(user, |m| m.roles(roles)).annotate("failed to edit roles")?;
-                writeln!(&mut &stream, "role added")?;
+        let stream = stream.annotate("failed to initialize IPC connection")?;
+        for line in BufReader::new(&stream).lines() {
+            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(OtherError::Shlex)?;
+            match &args[0][..] {
+                "add-role" => {
+                    let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                    let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
+                    let roles = iter::once(role).chain(GEFOLGE.member(user).annotate("failed to get member data")?.roles.into_iter());
+                    GEFOLGE.edit_member(user, |m| m.roles(roles)).annotate("failed to edit roles")?;
+                    writeln!(&mut &stream, "role added")?;
+                }
+                "channel-msg" => {
+                    let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
+                    channel.say(&args[2]).annotate("failed to send channel message")?;
+                    writeln!(&mut &stream, "message sent")?;
+                }
+                "msg" => {
+                    let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                    rcpt.create_dm_channel().annotate("failed to get/create DM channel")?.say(&args[2]).annotate("failed to send DM")?;
+                    writeln!(&mut &stream, "message sent")?;
+                }
+                "quit" => {
+                    let ctx_guard = ctx_arc.lock();
+                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
+                    shut_down(&ctx);
+                    thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
+                    writeln!(&mut &stream, "shutdown complete")?;
+                }
+                _ => { return Err(OtherError::UnknownCommand(args).into()); }
             }
-            "channel-msg" => {
-                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
-                channel.say(&args[2]).annotate("failed to send channel message")?;
-                writeln!(&mut &stream, "message sent")?;
-            }
-            "msg" => {
-                let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                rcpt.create_dm_channel().annotate("failed to get/create DM channel")?.say(&args[2]).annotate("failed to send DM")?;
-                writeln!(&mut &stream, "message sent")?;
-            }
-            "quit" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                shut_down(&ctx);
-                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                writeln!(&mut &stream, "shutdown complete")?;
-            }
-            _ => { return Err(OtherError::UnknownCommand(args).into()); }
         }
     }
     unreachable!();
