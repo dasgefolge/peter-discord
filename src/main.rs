@@ -43,10 +43,13 @@ use peter::{
     OtherError,
     Result,
     ShardManagerContainer,
-    bitbar,
     commands,
     shut_down,
     user_list,
+    voice::{
+        self,
+        VoiceStates
+    },
     werewolf
 };
 
@@ -100,12 +103,12 @@ impl EventHandler for Handler {
 
     fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
         user_list::set(guild.members.values().cloned()).expect("failed to initialize user list");
-        let mut chan_map = <bitbar::VoiceStates as Key>::Value::default();
+        let mut chan_map = <VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
                 let user = user_id.to_user().expect("failed to get user info");
-                let users = chan_map.entry(channel_id.name().expect("failed to get channel name"))
-                    .or_insert_with(Vec::default);
+                let (_, ref mut users) = chan_map.entry(channel_id)
+                    .or_insert_with(|| (channel_id.name().expect("failed to get channel name"), Vec::default()));
                 match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
                     Ok(idx) => { users[idx] = user; }
                     Err(idx) => { users.insert(idx, user); }
@@ -113,9 +116,9 @@ impl EventHandler for Handler {
             }
         }
         let mut data = ctx.data.lock();
-        data.insert::<bitbar::VoiceStates>(chan_map);
-        let chan_map = data.get::<bitbar::VoiceStates>().expect("missing voice states map");
-        bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
+        data.insert::<VoiceStates>(chan_map);
+        let chan_map = data.get::<VoiceStates>().expect("missing voice states map");
+        voice::dump_info(chan_map).expect("failed to update BitBar plugin");
     }
 
     fn guild_member_addition(&self, _: Context, _: GuildId, member: Member) {
@@ -152,29 +155,29 @@ impl EventHandler for Handler {
     fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, voice_state: VoiceState) {
         let user = voice_state.user_id.to_user().expect("failed to get user info");
         let mut data = ctx.data.lock();
-        let chan_map = data.get_mut::<bitbar::VoiceStates>().expect("missing voice states map");
-        let was_empty = chan_map.iter().all(|(channel_name, members)| channel_name == "Bibliothek" || members.is_empty());
+        let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
+        let was_empty = chan_map.iter().all(|(channel_id, (_, members))| *channel_id == voice::BIBLIOTHEK || members.is_empty());
         let mut empty_channels = Vec::default();
-        for (channel_name, users) in chan_map.iter_mut() {
+        for (channel_id, (_, users)) in chan_map.iter_mut() {
             users.retain(|iter_user| iter_user.id != user.id);
             if users.is_empty() {
-                empty_channels.push(channel_name.to_owned());
+                empty_channels.push(*channel_id);
             }
         }
-        for channel_name in empty_channels {
-            chan_map.remove(&channel_name);
+        for channel_id in empty_channels {
+            chan_map.remove(&channel_id);
         }
         let chan_id = voice_state.channel_id;
         if let Some(channel_id) = chan_id {
-            let users = chan_map.entry(channel_id.name().expect("failed to get channel name"))
-                .or_insert_with(Vec::default);
+            let (_, ref mut users) = chan_map.entry(channel_id)
+                .or_insert_with(|| (channel_id.name().expect("failed to get channel name"), Vec::default()));
             match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
                 Ok(idx) => { users[idx] = user.clone(); }
                 Err(idx) => { users.insert(idx, user.clone()); }
             }
         }
-        let is_empty = chan_map.iter().all(|(channel_name, members)| channel_name == "Bibliothek" || members.is_empty());
-        bitbar::dump_info(chan_map).expect("failed to update BitBar plugin");
+        let is_empty = chan_map.iter().all(|(channel_id, (_, members))| *channel_id == voice::BIBLIOTHEK || members.is_empty());
+        voice::dump_info(chan_map).expect("failed to update BitBar plugin");
         if was_empty && !is_empty {
             let channel_config = data.get::<ConfigChannels>().expect("missing channels config");
             channel_config.voice.say(MessageBuilder::default().push("Discord Party? ").mention(&user).push(" ist jetzt im voice channel ").mention(&chan_id.unwrap())).expect("failed to send channel message"); //TODO
@@ -258,7 +261,7 @@ fn main() -> Result<()> {
             let mut data = client.data.lock();
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
             data.insert::<ConfigChannels>(config.channels);
-            data.insert::<bitbar::VoiceStates>(BTreeMap::default());
+            data.insert::<VoiceStates>(BTreeMap::default());
             data.insert::<werewolf::GameState>(werewolf::GameState::default());
         }
         client.with_framework(StandardFramework::new()

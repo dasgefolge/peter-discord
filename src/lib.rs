@@ -24,12 +24,12 @@ use serenity::{
 use typemap::Key;
 use wrapped_enum::wrapped_enum;
 
-pub mod bitbar;
 pub mod commands;
 pub mod emoji;
 pub mod lang;
 pub mod parse;
 pub mod user_list;
+pub mod voice;
 pub mod werewolf;
 
 /// The Gefolge guild's ID.
