@@ -1,16 +1,18 @@
 //! Helper functions for the BitBar plugin.
 
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io
+use {
+    std::{
+        collections::BTreeMap,
+        fs::File,
+        io
+    },
+    serde_json::{
+        self,
+        json
+    },
+    serenity::model::prelude::*,
+    typemap::Key
 };
-use serde_json::{
-    self,
-    json
-};
-use serenity::model::prelude::*;
-use typemap::Key;
 
 /// The voice channel Bibliothek, for which no notifications are sent to #voice.
 pub const BIBLIOTHEK: ChannelId = ChannelId(401654567819018252);

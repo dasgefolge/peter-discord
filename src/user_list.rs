@@ -1,20 +1,22 @@
 //! Helper functions for maintaining the guild member list on disk, which is used by gefolge.org to verify logins.
 
-use std::{
-    fs::{
-        self,
-        File
+use {
+    std::{
+        fs::{
+            self,
+            File
+        },
+        io::{
+            self,
+            prelude::*
+        }
     },
-    io::{
-        self,
-        prelude::*
+    serde_json::json,
+    serenity::model::prelude::*,
+    crate::{
+        OtherError,
+        Result
     }
-};
-use serde_json::json;
-use serenity::model::prelude::*;
-use crate::{
-    OtherError,
-    Result
 };
 
 const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";

@@ -1,7 +1,9 @@
 //! Utilities for parsing messages into commands and game actions
 
-use std::str::FromStr;
-use serenity::model::id::UserId;
+use {
+    std::str::FromStr,
+    serenity::model::prelude::*
+};
 
 #[allow(missing_docs)]
 pub fn eat_user_mention(subj: &mut &str) -> Option<UserId> {

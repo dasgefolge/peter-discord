@@ -1,17 +1,19 @@
 //! Some utilities for working with emoji (both Unicode and custom) and message reactions.
 
-use std::{
-    collections::BTreeSet,
-    ffi::OsString,
-    fmt,
-    fs,
-    io,
-    mem,
-    str::FromStr
+use {
+    std::{
+        collections::BTreeSet,
+        ffi::OsString,
+        fmt,
+        fs,
+        io,
+        mem,
+        str::FromStr
+    },
+    lazy_static::lazy_static,
+    regex::Regex,
+    serenity::model::prelude::*
 };
-use lazy_static::lazy_static;
-use regex::Regex;
-use serenity::model::prelude::*;
 
 /// An error that can occur while parsing emoji from a message.
 #[derive(Debug)]
@@ -35,7 +37,7 @@ impl From<io::Error> for Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::FilenameDecode(ref s) => write!(f, "failed to read twemoji filename: {:?}", s),
             Error::Io(ref e) => write!(f, "io error while building emoji db: {}", e)

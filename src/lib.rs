@@ -1,28 +1,27 @@
 //! The base library for the Gefolge Discord bot, Peter
 
-#![cfg_attr(test, deny(warnings))]
-#![warn(trivial_casts)]
-#![deny(unused, missing_docs, unused_qualifications)]
-#![forbid(unused_import_braces)]
+#![deny(missing_docs, rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
 
-use std::{
-    env,
-    fmt,
-    io::{
-        self,
-        BufReader,
+use {
+    std::{
+        env,
+        fmt,
+        io::{
+            self,
+            BufReader,
+            prelude::*
+        },
+        net::TcpStream,
+        sync::Arc
+    },
+    serenity::{
+        client::bridge::gateway::ShardManager,
+        model::prelude::*,
         prelude::*
     },
-    net::TcpStream,
-    sync::Arc
+    typemap::Key,
+    wrapped_enum::wrapped_enum
 };
-use serenity::{
-    client::bridge::gateway::ShardManager,
-    model::prelude::*,
-    prelude::*
-};
-use typemap::Key;
-use wrapped_enum::wrapped_enum;
 
 pub mod commands;
 pub mod emoji;
@@ -107,7 +106,7 @@ impl<T, E: Into<Error>> IntoResult<T> for std::result::Result<T, E> {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::ChannelIdParse(ref e) => e.fmt(f),
             Error::Env(ref e) => e.fmt(f),
@@ -149,7 +148,7 @@ pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> R
 /// Utility function to shut down all shards.
 pub fn shut_down(ctx: &Context) {
     ctx.invisible(); // hack to prevent the bot showing as online when it's not
-    let data = ctx.data.lock();
+    let data = ctx.data.read();
     let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock();
     shard_manager.shutdown_all();
 }

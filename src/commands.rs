@@ -2,86 +2,91 @@
 
 #![allow(missing_docs)]
 
-use std::sync::Arc;
-use rand::{
-    Rng,
-    thread_rng
-};
-use serenity::{
-    framework::standard::{
-        Args,
-        Command,
-        CommandOptions,
-        CommandError
+use {
+    rand::{
+        Rng,
+        thread_rng
     },
-    model::channel::Message,
-    prelude::*
-};
-use crate::{
-    emoji,
-    shut_down
+    serenity::{
+        framework::standard::{
+            Args,
+            CommandResult,
+            macros::{
+                command,
+                group
+            }
+        },
+        model::prelude::*,
+        prelude::*
+    },
+    crate::{
+        emoji,
+        shut_down,
+        werewolf::{
+            COMMAND_IN_COMMAND,
+            COMMAND_OUT_COMMAND
+        }
+    }
 };
 
-pub fn ping(_: &mut Context, msg: &Message, _: Args) -> Result<(), CommandError> {
+#[command]
+pub fn ping(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
     let mut rng = thread_rng();
     let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5)));
-    msg.reply(if rng.gen_bool(0.001) { &pingception } else { "pong" })?;
+    msg.reply(ctx, if rng.gen_bool(0.001) { &pingception } else { "pong" })?;
     Ok(())
 }
 
-pub fn poll(_: &mut Context, msg: &Message, mut args: Args) -> Result<(), CommandError> {
+#[command]
+pub fn poll(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut emoji_iter = emoji::Iter::new(msg.content.to_owned())?.peekable();
     if emoji_iter.peek().is_some() {
         for emoji in emoji_iter {
-            msg.react(emoji)?;
+            msg.react(&ctx, emoji)?;
         }
     } else if let Ok(num_reactions) = args.single::<u8>() {
         for i in 0..num_reactions.min(26) {
-            msg.react(emoji::nth_letter(i))?;
+            msg.react(&ctx, emoji::nth_letter(i))?;
         }
     } else {
-        msg.react("👍")?;
-        msg.react("👎")?;
+        msg.react(&ctx, "👍")?;
+        msg.react(&ctx, "👎")?;
     }
     Ok(())
 }
 
-pub struct Quit;
-
-impl Command for Quit {
-    fn execute(&self, ctx: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
-        shut_down(&ctx);
-        Ok(())
-    }
-
-    fn options(&self) -> Arc<CommandOptions> {
-        Arc::new(CommandOptions {
-            owners_only: true,
-            ..CommandOptions::default()
-        })
-    }
+#[command]
+#[owners_only]
+pub fn quit(ctx: &mut Context, _: &Message, _: Args) -> CommandResult {
+    shut_down(&ctx);
+    Ok(())
 }
 
-pub fn roll(_: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
+pub fn roll(_: &mut Context, _: &Message, _: Args) -> CommandResult {
     unimplemented!(); //TODO
 }
 
-pub fn shuffle(_: &mut Context, _: &Message, _: Args) -> Result<(), CommandError> {
+pub fn shuffle(_: &mut Context, _: &Message, _: Args) -> CommandResult {
     unimplemented!(); //TODO
 }
 
-pub struct Test;
-
-impl Command for Test {
-    fn execute(&self, _: &mut Context, msg: &Message, args: Args) -> Result<(), CommandError> {
-        println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
-        Ok(())
-    }
-
-    fn options(&self) -> Arc<CommandOptions> {
-        Arc::new(CommandOptions {
-            owners_only: true,
-            ..CommandOptions::default()
-        })
-    }
+#[command]
+#[owners_only]
+pub fn test(_: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
+    Ok(())
 }
+
+group!({
+    name: "main",
+    commands: [
+        command_in,
+        command_out,
+        ping,
+        poll,
+        quit,
+        test
+    ]
+});
+
+pub use self::MAIN_GROUP as GROUP;

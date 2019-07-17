@@ -2,18 +2,20 @@
 
 #![allow(missing_docs)] //TODO remove
 
-use std::{
-    borrow::Cow,
-    fmt
-};
-use num_traits::One;
-use quantum_werewolf::game::{
-    Faction,
-    Role
-};
-use serenity::{
-    model::user::User,
-    utils::MessageBuilder
+use {
+    std::{
+        borrow::Cow,
+        fmt
+    },
+    num_traits::One,
+    quantum_werewolf::game::{
+        Faction,
+        Role
+    },
+    serenity::{
+        model::user::User,
+        utils::MessageBuilder
+    }
 };
 
 pub enum Gender { M, F, N }
@@ -23,11 +25,11 @@ pub use self::Gender::*;
 pub use self::Case::*;
 
 pub trait MessageBuilderExt {
-    fn dm_mention(self, user: &User) -> Self;
+    fn dm_mention(&mut self, user: &User) -> &mut Self;
 }
 
 impl MessageBuilderExt for MessageBuilder {
-    fn dm_mention(self, user: &User) -> Self {
+    fn dm_mention(&mut self, user: &User) -> &mut Self {
         self.mention(user).push_safe(format!(" ({}#{:04})", user.name, user.discriminator))
     }
 }
