@@ -38,7 +38,7 @@ pub fn dump_info(voice_states: &<VoiceStates as Key>::Value) -> io::Result<()> {
                     }))
                     .collect::<Vec<_>>(),
                 "name": channel_name,
-                "showflake": channel_id
+                "snowflake": channel_id
             }))
             .collect::<Vec<_>>()
     }))?;
