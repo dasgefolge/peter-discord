@@ -2,10 +2,7 @@
 
 use {
     std::{
-        fs::{
-            self,
-            File
-        },
+        fs::File,
         io::{
             self,
             prelude::*
@@ -38,18 +35,23 @@ pub fn add(member: Member) -> Result<()> {
 }
 
 /// Remove a Discord account from the list of Gefolge guild members.
-pub fn remove<U: Into<UserId>>(user: U) -> io::Result<()> {
+pub fn remove<U: Into<UserId>>(_ /*user*/: U) -> io::Result<()> {
+    /*
     match fs::remove_file(format!("{}/{}.json", PROFILES_DIR, user.into())) {
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
         r => r
     }
+    */
+    Ok(())
 }
 
 /// (Re)initialize the list of Gefolge guild members.
 pub fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<()> {
+    /*
     for entry in fs::read_dir(PROFILES_DIR)? {
         fs::remove_file(entry?.path())?;
     }
+    */
     for member in members.into_iter() {
         add(member)?;
     }
