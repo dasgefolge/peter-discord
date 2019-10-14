@@ -217,6 +217,24 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO chang
                     thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
                     writeln!(&mut &stream, "shutdown complete")?;
                 }
+                "set-display-name" => {
+                    let ctx_guard = ctx_arc.lock();
+                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
+                    let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
+                    let new_display_name = &args[2];
+                    match GEFOLGE.edit_member(ctx, &user, |e| e.nickname(new_display_name)) {
+                        Ok(()) => {
+                            writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
+                        }
+                        Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
+                            writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
+                        } else {
+                            //TODO use box patterns to eliminate this branch and use the next match arm instead
+                            return Err(serenity::Error::Http(e)).annotate("failed to edit member");
+                        },
+                        Err(e) => { return Err(e).annotate("failed to edit member"); }
+                    }
+                }
                 _ => { return Err(OtherError::UnknownCommand(args).into()); }
             }
         }
