@@ -194,6 +194,8 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO chang
 }
 
 fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<()> {
+    let mut last_error = Ok(());
+    let mut buf = String::default();
     for line in BufReader::new(&stream).lines() {
         let line = match line {
             Ok(line) => line,
@@ -203,7 +205,19 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
                 return Err(e.annotate("IPC client line"));
             }
         };
-        let args = shlex::split(&line).ok_or(Error::Shlex(line.clone()))?;
+        buf.push_str(&line);
+        let args = match shlex::split(&buf) {
+            Ok(args) => {
+                last_error = Ok(());
+                buf.clear();
+                args
+            }
+            Err(e) => {
+                last_error = Err(Error::Shlex(e, line));
+                buf.push('\n');
+                continue;
+            }
+        };
         match &args[0][..] {
             "add-role" => {
                 let ctx_guard = ctx_arc.lock();
@@ -256,7 +270,7 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
             _ => { return Err(Error::UnknownCommand(args)); }
         }
     }
-    Ok(())
+    last_error
 }
 
 fn notify_ipc_crash(e: Error) {

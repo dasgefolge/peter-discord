@@ -24,7 +24,6 @@ regex = "1"
 serde = "1"
 serde_json = "1"
 serenity = "0"
-shlex = "0"
 typemap = "0"
 whoami = "0"
 
@@ -35,3 +34,6 @@ features = ["from"]
 
 [dependencies.quantum-werewolf]
 git = "https://github.com/dasgefolge/quantum-werewolf"
+
+[dependencies.shlex]
+git = "https://github.com/fenhl/rust-shlex"

@@ -58,7 +58,7 @@ pub enum Error {
     Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     #[from(ignore)]
-    Shlex(String),
+    Shlex(shlex::Error, String),
     /// Returned from `listen_ipc` if an unknown command is received.
     #[from(ignore)]
     UnknownCommand(Vec<String>),
@@ -105,7 +105,7 @@ impl fmt::Display for Error {
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::Shlex(ref e) => write!(f, "failed to parse IPC command line: {}", e),
+            Error::Shlex(e, ref line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UserIdParse(ref e) => e.fmt(f)
         }
