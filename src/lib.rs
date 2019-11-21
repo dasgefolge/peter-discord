@@ -14,13 +14,13 @@ use {
         net::TcpStream,
         sync::Arc
     },
+    derive_more::From,
     serenity::{
         client::bridge::gateway::ShardManager,
         model::prelude::*,
         prelude::*
     },
-    typemap::Key,
-    wrapped_enum::wrapped_enum
+    typemap::Key
 };
 
 pub mod commands;
@@ -37,88 +37,74 @@ pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 /// The address and port where the bot listens for IPC commands.
 pub const IPC_ADDR: &str = "127.0.0.1:18807";
 
-/// A collection of possible errors not simply forwarded from other libraries.
-#[derive(Debug)]
-pub enum OtherError {
+#[derive(Debug, From)]
+#[allow(missing_docs)]
+pub enum Error {
+    Annotated(String, Box<Error>),
+    ChannelIdParse(ChannelIdParseError),
+    Env(env::VarError),
+    GameAction(String),
+    Io(io::Error),
+    Json(serde_json::Error),
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
     /// Returned by the user list handler if a user has no join date.
     MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
+    QwwStartGame(quantum_werewolf::game::state::StartGameError),
+    RoleIdParse(RoleIdParseError),
+    Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     Shlex,
     /// Returned from `listen_ipc` if an unknown command is received.
-    UnknownCommand(Vec<String>)
-}
-
-impl fmt::Display for OtherError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            OtherError::MissingContext => write!(f, "Serenity context not available before ready event"),
-            OtherError::MissingJoinDate => write!(f, "encountered user without join date"),
-            OtherError::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            OtherError::Shlex => write!(f, "failed to parse IPC command line"),
-            OtherError::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
-        }
-    }
-}
-
-wrapped_enum! {
-    #[allow(missing_docs)]
-    #[derive(Debug)]
-    pub enum Error {
-        #[allow(missing_docs)]
-        ChannelIdParse(ChannelIdParseError),
-        #[allow(missing_docs)]
-        Env(env::VarError),
-        #[allow(missing_docs)]
-        GameAction(String),
-        #[allow(missing_docs)]
-        Io(io::Error),
-        #[allow(missing_docs)]
-        Json(serde_json::Error),
-        #[allow(missing_docs)]
-        Other(OtherError),
-        #[allow(missing_docs)]
-        QwwStartGame(quantum_werewolf::game::state::StartGameError),
-        #[allow(missing_docs)]
-        RoleIdParse(RoleIdParseError),
-        #[allow(missing_docs)]
-        Serenity(serenity::Error),
-        #[allow(missing_docs)]
-        UserIdParse(UserIdParseError),
-        #[allow(missing_docs)]
-        Wrapped((String, Box<Error>))
-    }
+    UnknownCommand(Vec<String>),
+    UserIdParse(UserIdParseError)
 }
 
 /// A helper trait for annotating errors with more informative error messages.
-pub trait IntoResult<T> {
+pub trait IntoResultExt {
+    /// The return type of the `annotate` method.
+    type T;
+
     /// Annotates an error with an additional message which is displayed along with the error.
-    fn annotate(self, msg: impl Into<String>) -> Result<T>;
+    fn annotate(self, note: impl ToString) -> Self::T;
 }
 
-impl<T, E: Into<Error>> IntoResult<T> for std::result::Result<T, E> {
-    fn annotate(self, msg: impl Into<String>) -> Result<T> {
-        self.map_err(|e| Error::Wrapped((msg.into(), Box::new(e.into()))))
+impl<E: Into<Error>> IntoResultExt for E {
+    type T = Error;
+
+    fn annotate(self, note: impl ToString) -> Error {
+        Error::Annotated(note.to_string(), Box::new(self.into()))
+    }
+}
+
+impl<T, E: IntoResultExt> IntoResultExt for std::result::Result<T, E> {
+    type T = std::result::Result<T, E::T>;
+
+    fn annotate(self, note: impl ToString) -> std::result::Result<T, E::T> {
+        self.map_err(|e| e.annotate(note))
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Error::Annotated(ref msg, ref e) => write!(f, "{}: {}", msg, e),
             Error::ChannelIdParse(ref e) => e.fmt(f),
             Error::Env(ref e) => e.fmt(f),
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::Json(ref e) => e.fmt(f),
-            Error::Other(ref e) => e.fmt(f),
+            Error::MissingContext => write!(f, "Serenity context not available before ready event"),
+            Error::MissingJoinDate => write!(f, "encountered user without join date"),
+            Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::UserIdParse(ref e) => e.fmt(f),
-            Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
+            Error::Shlex => write!(f, "failed to parse IPC command line"),
+            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
+            Error::UserIdParse(ref e) => e.fmt(f)
         }
     }
 }
@@ -141,7 +127,7 @@ pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> R
     writeln!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
     let mut buf = String::default();
     BufReader::new(stream).read_line(&mut buf)?;
-    if buf.pop() != Some('\n') { return Err(OtherError::MissingNewline.into()) }
+    if buf.pop() != Some('\n') { return Err(Error::MissingNewline); }
     Ok(buf)
 }
 

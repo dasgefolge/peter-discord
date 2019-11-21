@@ -9,11 +9,15 @@ use {
         env,
         fs::File,
         io::{
+            self,
             BufReader,
             prelude::*
         },
         iter,
-        net::TcpListener,
+        net::{
+            TcpListener,
+            TcpStream
+        },
         process::{
             Command,
             Stdio
@@ -23,7 +27,7 @@ use {
         time::Duration
     },
     chrono::prelude::*,
-    serde_derive::Deserialize,
+    serde::Deserialize,
     serenity::{
         framework::standard::StandardFramework,
         model::prelude::*,
@@ -34,8 +38,7 @@ use {
     peter::{
         GEFOLGE,
         Error,
-        IntoResult,
-        OtherError,
+        IntoResultExt as _,
         Result,
         ShardManagerContainer,
         commands,
@@ -182,64 +185,78 @@ impl EventHandler for Handler {
 }
 
 fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO change return type to Result<!>
-    for stream in TcpListener::bind(peter::IPC_ADDR)?.incoming() {
-        let stream = stream.annotate("failed to initialize IPC connection")?;
-        for line in BufReader::new(&stream).lines() {
-            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(OtherError::Shlex)?;
-            match &args[0][..] {
-                "add-role" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                    let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                    let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
-                    let roles = iter::once(role).chain(GEFOLGE.member(ctx, user).annotate("failed to get member data")?.roles.into_iter());
-                    GEFOLGE.edit_member(ctx, user, |m| m.roles(roles)).annotate("failed to edit roles")?;
-                    writeln!(&mut &stream, "role added")?;
-                }
-                "channel-msg" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                    let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
-                    channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
-                    writeln!(&mut &stream, "message sent")?;
-                }
-                "msg" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                    let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                    rcpt.create_dm_channel(ctx).annotate("failed to get/create DM channel")?.say(ctx, &args[2]).annotate("failed to send DM")?;
-                    writeln!(&mut &stream, "message sent")?;
-                }
-                "quit" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                    shut_down(&ctx);
-                    thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                    writeln!(&mut &stream, "shutdown complete")?;
-                }
-                "set-display-name" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
-                    let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
-                    let new_display_name = &args[2];
-                    match GEFOLGE.edit_member(ctx, &user, |e| e.nickname(new_display_name)) {
-                        Ok(()) => {
-                            writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
-                        }
-                        Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
-                            writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
-                        } else {
-                            //TODO use box patterns to eliminate this branch and use the next match arm instead
-                            return Err(serenity::Error::Http(e)).annotate("failed to edit member");
-                        },
-                        Err(e) => { return Err(e).annotate("failed to edit member"); }
-                    }
-                }
-                _ => { return Err(OtherError::UnknownCommand(args).into()); }
-            }
+    for stream in TcpListener::bind(peter::IPC_ADDR).annotate("IPC listener")?.incoming() {
+        if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
+            notify_ipc_crash(e);
         }
     }
     unreachable!();
+}
+
+fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<()> {
+    for line in BufReader::new(&stream).lines() {
+        let line = match line {
+            Ok(line) => line,
+            Err(e) => if e.kind() == io::ErrorKind::ConnectionReset {
+                break; // connection reset by peer, consider the IPC session terminated
+            } else {
+                return Err(e.annotate("IPC client line"));
+            }
+        };
+        let args = shlex::split(&line).ok_or(Error::Shlex)?;
+        match &args[0][..] {
+            "add-role" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
+                let roles = iter::once(role).chain(GEFOLGE.member(ctx, user).annotate("failed to get member data")?.roles.into_iter());
+                GEFOLGE.edit_member(ctx, user, |m| m.roles(roles)).annotate("failed to edit roles")?;
+                writeln!(&mut &stream, "role added")?;
+            }
+            "channel-msg" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
+                channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
+                writeln!(&mut &stream, "message sent")?;
+            }
+            "msg" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
+                rcpt.create_dm_channel(ctx).annotate("failed to get/create DM channel")?.say(ctx, &args[2]).annotate("failed to send DM")?;
+                writeln!(&mut &stream, "message sent")?;
+            }
+            "quit" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                shut_down(&ctx);
+                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
+                writeln!(&mut &stream, "shutdown complete")?;
+            }
+            "set-display-name" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
+                let new_display_name = &args[2];
+                match GEFOLGE.edit_member(ctx, &user, |e| e.nickname(new_display_name)) {
+                    Ok(()) => {
+                        writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
+                    }
+                    Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
+                        writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
+                    } else {
+                        //TODO use box patterns to eliminate this branch and use the next match arm instead
+                        return Err(serenity::Error::Http(e)).annotate("failed to edit member");
+                    },
+                    Err(e) => { return Err(e).annotate("failed to edit member"); }
+                }
+            }
+            _ => { return Err(Error::UnknownCommand(args)); }
+        }
+    }
+    Ok(())
 }
 
 fn notify_ipc_crash(e: Error) {
