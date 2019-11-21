@@ -17,7 +17,6 @@ path = "src/lib.rs"
 
 [dependencies]
 chrono = "0"
-derive_more = "0"
 lazy_static = "1"
 num-traits = "0"
 rand = "0"
@@ -28,6 +27,11 @@ serenity = "0"
 shlex = "0"
 typemap = "0"
 whoami = "0"
+
+[dependencies.derive_more]
+version = "0"
+default-features = false
+features = ["from"]
 
 [dependencies.quantum-werewolf]
 git = "https://github.com/dasgefolge/quantum-werewolf"

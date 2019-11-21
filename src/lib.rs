@@ -43,6 +43,7 @@ pub enum Error {
     Annotated(String, Box<Error>),
     ChannelIdParse(ChannelIdParseError),
     Env(env::VarError),
+    #[from(ignore)]
     GameAction(String),
     Io(io::Error),
     Json(serde_json::Error),
@@ -56,8 +57,10 @@ pub enum Error {
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
-    Shlex,
+    #[from(ignore)]
+    Shlex(String),
     /// Returned from `listen_ipc` if an unknown command is received.
+    #[from(ignore)]
     UnknownCommand(Vec<String>),
     UserIdParse(UserIdParseError)
 }
@@ -102,7 +105,7 @@ impl fmt::Display for Error {
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::Shlex => write!(f, "failed to parse IPC command line"),
+            Error::Shlex(ref e) => write!(f, "failed to parse IPC command line: {}", e),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UserIdParse(ref e) => e.fmt(f)
         }

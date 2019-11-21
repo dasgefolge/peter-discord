@@ -203,7 +203,7 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
                 return Err(e.annotate("IPC client line"));
             }
         };
-        let args = shlex::split(&line).ok_or(Error::Shlex)?;
+        let args = shlex::split(&line).ok_or(Error::Shlex(line.clone()))?;
         match &args[0][..] {
             "add-role" => {
                 let ctx_guard = ctx_arc.lock();
