@@ -77,16 +77,15 @@ pub fn test(_: &mut Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
-group!({
-    name: "main",
-    commands: [
-        command_in,
-        command_out,
-        ping,
-        poll,
-        quit,
-        test
-    ]
-});
+#[group]
+#[commands(
+    command_in,
+    command_out,
+    ping,
+    poll,
+    quit,
+    test
+)]
+struct Main;
 
 pub use self::MAIN_GROUP as GROUP;

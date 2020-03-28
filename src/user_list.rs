@@ -10,16 +10,13 @@ use {
     },
     serde_json::json,
     serenity::model::prelude::*,
-    crate::{
-        Error,
-        Result
-    }
+    crate::Error
 };
 
 const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";
 
 /// Add a Discord account to the list of Gefolge guild members.
-pub fn add(member: Member) -> Result<()> {
+pub fn add(member: Member) -> Result<(), Error> {
     let user = member.user.read().clone();
     let mut f = File::create(format!("{}/{}.json", PROFILES_DIR, user.id))?;
     write!(f, "{:#}", json!({
@@ -46,7 +43,7 @@ pub fn remove<U: Into<UserId>>(_ /*user*/: U) -> io::Result<()> {
 }
 
 /// (Re)initialize the list of Gefolge guild members.
-pub fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<()> {
+pub fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<(), Error> {
     /*
     for entry in fs::read_dir(PROFILES_DIR)? {
         fs::remove_file(entry?.path())?;
@@ -59,7 +56,7 @@ pub fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<()> {
 }
 
 /// Update the data for a guild member. Equivalent to `remove` followed by `add`.
-pub fn update(member: Member) -> Result<()> {
+pub fn update(member: Member) -> Result<(), Error> {
     remove(&member)?;
     add(member)?;
     Ok(())

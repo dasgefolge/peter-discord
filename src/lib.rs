@@ -1,6 +1,4 @@
-//! The base library for the Gefolge Discord bot, Peter
-
-#![deny(missing_docs, rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
+#![deny(rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
 
 use {
     std::{
@@ -27,6 +25,7 @@ pub mod commands;
 pub mod emoji;
 pub mod lang;
 pub mod parse;
+pub mod twitch;
 pub mod user_list;
 pub mod voice;
 pub mod werewolf;
@@ -38,7 +37,6 @@ pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 pub const IPC_ADDR: &str = "127.0.0.1:18807";
 
 #[derive(Debug, From)]
-#[allow(missing_docs)]
 pub enum Error {
     Annotated(String, Box<Error>),
     ChannelIdParse(ChannelIdParseError),
@@ -53,12 +51,15 @@ pub enum Error {
     MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
+    /// Returned if the Twitch API client ID is missing in the configuration.
+    MissingTwitchConfig,
     QwwStartGame(quantum_werewolf::game::state::StartGameError),
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     #[from(ignore)]
     Shlex(shlex::Error, String),
+    Twitch(twitch_helix::Error),
     /// Returned from `listen_ipc` if an unknown command is received.
     #[from(ignore)]
     UnknownCommand(Vec<String>),
@@ -82,10 +83,10 @@ impl<E: Into<Error>> IntoResultExt for E {
     }
 }
 
-impl<T, E: IntoResultExt> IntoResultExt for std::result::Result<T, E> {
-    type T = std::result::Result<T, E::T>;
+impl<T, E: IntoResultExt> IntoResultExt for Result<T, E> {
+    type T = Result<T, E::T>;
 
-    fn annotate(self, note: impl ToString) -> std::result::Result<T, E::T> {
+    fn annotate(self, note: impl ToString) -> Result<T, E::T> {
         self.map_err(|e| e.annotate(note))
     }
 }
@@ -102,18 +103,17 @@ impl fmt::Display for Error {
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
+            Error::MissingTwitchConfig => write!(f, "Twitch credentials not found in config file"),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
             Error::Shlex(e, ref line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
+            Error::Twitch(ref e) => e.fmt(f),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UserIdParse(ref e) => e.fmt(f)
         }
     }
 }
-
-#[allow(missing_docs)]
-pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// `typemap` key for the serenity shard manager.
 pub struct ShardManagerContainer;

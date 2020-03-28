@@ -45,7 +45,6 @@ use {
     crate::{
         Error,
         GEFOLGE,
-        Result,
         lang::*,
         parse
     }
@@ -78,7 +77,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    fn announce_deaths(&mut self, ctx: &Context, new_alive: Option<HashSet<UserId>>) -> Result<()> {
+    fn announce_deaths(&mut self, ctx: &Context, new_alive: Option<HashSet<UserId>>) -> Result<(), Error> {
         self.alive = if let Some(new_alive) = new_alive {
             let new_alive = new_alive.iter().cloned().collect();
             if let Some(ref old_alive) = self.alive {
@@ -121,7 +120,7 @@ impl GameState {
         self.timeouts[timeout_idx] = false;
     }
 
-    fn resolve_day(&mut self, ctx: &Context, day: Day<UserId>) -> Result<()> {
+    fn resolve_day(&mut self, ctx: &Context, day: Day<UserId>) -> Result<(), Error> {
         self.cancel_all_timeouts();
         // close discussion
         TEXT_CHANNEL.delete_permission(ctx, PermissionOverwriteType::Role(DISCUSSION_ROLE))?;
@@ -146,7 +145,7 @@ impl GameState {
         Ok(())
     }
 
-    fn resolve_night(&mut self, ctx: &Context, night: Night<UserId>) -> Result<State<UserId>> {
+    fn resolve_night(&mut self, ctx: &Context, night: Night<UserId>) -> Result<State<UserId>, Error> {
         self.cancel_all_timeouts();
         let result = night.resolve_nar(&self.night_actions);
         self.night_actions = Vec::default();
@@ -172,7 +171,7 @@ impl GameState {
         Ok(result)
     }
 
-    fn start_day(&self, ctx: &Context, day: &Day<UserId>) -> Result<()> {
+    fn start_day(&self, ctx: &Context, day: &Day<UserId>) -> Result<(), Error> {
         // announce probability table
         let mut builder = MessageBuilder::default();
         builder.push("Die aktuelle Wahrscheinlichkeitsverteilung:");
@@ -202,7 +201,7 @@ impl GameState {
         Ok(())
     }
 
-    fn start_night(&self, ctx: &Context, _: &Night<UserId>) -> Result<()> {
+    fn start_night(&self, ctx: &Context, _: &Night<UserId>) -> Result<(), Error> {
         TEXT_CHANNEL.say(ctx, "Es wird Nacht. Bitte schickt mir innerhalb der nächsten 3 Minuten eure Nachtaktionen.")?; //TODO adjust for night timeout changes
         Ok(())
     }
@@ -291,7 +290,7 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
     Ok(())
 }
 
-fn continue_game(ctx: &Context) -> Result<()> {
+fn continue_game(ctx: &Context) -> Result<(), Error> {
     let (mut timeout_idx, mut sleep_duration) = {
         let mut data = ctx.data.write();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
@@ -324,7 +323,7 @@ fn continue_game(ctx: &Context) -> Result<()> {
 /// If the action was valid, returns `Ok`.
 ///
 /// A return value of `Error::GameAction` indicates an invalid action. Other return values are internal errors.
-pub fn handle_action(ctx: &mut Context, action: Action) -> Result<()> {
+pub fn handle_action(ctx: &mut Context, action: Action) -> Result<(), Error> {
     {
         let mut data = ctx.data.write();
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state");
@@ -358,7 +357,7 @@ pub fn handle_action(ctx: &mut Context, action: Action) -> Result<()> {
     Ok(())
 }
 
-fn handle_game_state(ctx: &Context, state_ref: &mut GameState) -> Result<Option<Duration>> {
+fn handle_game_state(ctx: &Context, state_ref: &mut GameState) -> Result<Option<Duration>, Error> {
     let new_alive = { state_ref.state.alive().map(|new_alive| new_alive.into_iter().cloned().collect()) };
     state_ref.announce_deaths(ctx, new_alive)?;
     let state = mem::replace(&mut state_ref.state, State::default());
@@ -424,7 +423,7 @@ fn handle_game_state(ctx: &Context, state_ref: &mut GameState) -> Result<Option<
     })
 }
 
-fn handle_timeout(ctx: &Context, state_ref: &mut GameState) -> Result<Option<Duration>> {
+fn handle_timeout(ctx: &Context, state_ref: &mut GameState) -> Result<Option<Duration>, Error> {
     let state = mem::replace(&mut state_ref.state, State::default());
     state_ref.state = match state {
         State::Signups(signups) => {
@@ -471,7 +470,7 @@ fn handle_timeout(ctx: &Context, state_ref: &mut GameState) -> Result<Option<Dur
     handle_game_state(ctx, state_ref)
 }
 
-pub fn parse_action(ctx: &Context, src: UserId, mut msg: &str) -> Option<Result<Action>> {
+pub fn parse_action(ctx: &Context, src: UserId, mut msg: &str) -> Option<Result<Action, Error>> {
     fn parse_player(ctx: &Context, subj: &mut &str) -> Result<UserId, Option<UserId>> {
         if let Some(user_id) = parse::eat_user_mention(subj) {
             if player_in_game(ctx, user_id) { Ok(user_id) } else { Err(Some(user_id)) }

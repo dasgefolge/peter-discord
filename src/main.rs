@@ -26,6 +26,7 @@ use {
         thread,
         time::Duration
     },
+    async_std::task::block_on,
     chrono::prelude::*,
     serde::Deserialize,
     serenity::{
@@ -39,10 +40,10 @@ use {
         GEFOLGE,
         Error,
         IntoResultExt as _,
-        Result,
         ShardManagerContainer,
         commands,
         shut_down,
+        twitch,
         user_list,
         voice::{
             self,
@@ -56,7 +57,8 @@ use {
 #[serde(rename_all = "camelCase")]
 struct Config {
     channels: ConfigChannels,
-    peter: ConfigPeter
+    peter: ConfigPeter,
+    twitch: twitch::Config
 }
 
 #[derive(Deserialize)]
@@ -184,16 +186,16 @@ impl EventHandler for Handler {
     }
 }
 
-fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<()> { //TODO change return type to Result<!>
+fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
     for stream in TcpListener::bind(peter::IPC_ADDR).annotate("IPC listener")?.incoming() {
         if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
-            notify_ipc_crash(e);
+            notify_thread_crash("IPC", e);
         }
     }
     unreachable!();
 }
 
-fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<()> {
+fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<(), Error> {
     let mut last_error = Ok(());
     let mut buf = String::default();
     for line in BufReader::new(&stream).lines() {
@@ -273,7 +275,7 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
     last_error
 }
 
-fn notify_ipc_crash(e: Error) {
+fn notify_thread_crash(thread_kind: &str, e: Error) {
     let mut child = Command::new("ssmtp")
         .arg("fenhl@fenhl.net")
         .stdin(Stdio::piped())
@@ -283,16 +285,17 @@ fn notify_ipc_crash(e: Error) {
         let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
         write!(
             stdin,
-            "To: fenhl@fenhl.net\nFrom: {}@{}\nSubject: Peter IPC thread crashed\n\nPeter IPC thread crashed with the following error:\n{}\n",
-            whoami::username(),
-            whoami::hostname(),
-            e
+            "To: fenhl@fenhl.net\nFrom: {user}@{host}\nSubject: Peter {thread} thread crashed\n\nPeter {thread} thread crashed with the following error:\n{e}\n",
+            user=whoami::username(),
+            host=whoami::hostname(),
+            thread=thread_kind,
+            e=e
         ).expect("failed to write to ssmtp stdin");
     }
     child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
@@ -301,7 +304,8 @@ fn main() -> Result<()> {
         // read config
         let config = serde_json::from_reader::<_, Config>(File::open("/usr/local/share/fidera/config.json")?)?;
         let handler = Handler::default();
-        let ctx_arc = handler.0.clone();
+        let ctx_arc_ipc = handler.0.clone();
+        let ctx_arc_twitch = handler.0.clone();
         let mut client = Client::new(&config.peter.bot_token, handler)?;
         let owners = iter::once(client.cache_and_http.http.get_current_application_info()?.owner.id).collect();
         {
@@ -309,6 +313,7 @@ fn main() -> Result<()> {
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
             data.insert::<ConfigChannels>(config.channels);
             data.insert::<VoiceStates>(BTreeMap::default());
+            data.insert::<twitch::Config>(config.twitch);
             data.insert::<werewolf::GameState>(werewolf::GameState::default());
         }
         client.with_framework(StandardFramework::new()
@@ -346,9 +351,18 @@ fn main() -> Result<()> {
         // listen for IPC commands
         {
             thread::Builder::new().name("Peter IPC".into()).spawn(move || {
-                if let Err(e) = listen_ipc(ctx_arc) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = listen_ipc(ctx_arc_ipc) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_ipc_crash(e);
+                    notify_thread_crash("IPC", e);
+                }
+            })?;
+        }
+        // check Twitch stream status
+        {
+            thread::Builder::new().name("Peter Twitch".into()).spawn(move || {
+                if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch)) { //TODO remove `if` after changing from `()` to `!`
+                    eprintln!("{}", e);
+                    notify_thread_crash("Twitch", e);
                 }
             })?;
         }
