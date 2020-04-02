@@ -37,8 +37,9 @@ use {
     },
     typemap::Key,
     peter::{
-        GEFOLGE,
+        ConfigChannels,
         Error,
+        GEFOLGE,
         IntoResultExt as _,
         ShardManagerContainer,
         commands,
@@ -63,16 +64,6 @@ struct Config {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ConfigChannels {
-    voice: ChannelId
-}
-
-impl Key for ConfigChannels {
-    type Value = ConfigChannels;
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct ConfigPeter {
     bot_token: String
 }
@@ -88,21 +79,21 @@ impl EventHandler for Handler {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
             println!("[ ** ] {}", ready.user.invite_url(&ctx, Permissions::all()).expect("failed to generate invite URL"));
             shut_down(&ctx);
-        } else if guilds.len() > 1 {
-            println!("[!!!!] Multiple guilds found");
-            shut_down(&ctx);
         }
     }
 
-    fn guild_ban_addition(&self, _: Context, _: GuildId, user: User) {
+    fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
+        if guild_id != GEFOLGE { return; }
         user_list::remove(user).expect("failed to remove banned user from user list");
     }
 
     fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
+        if guild_id != GEFOLGE { return; }
         user_list::add(guild_id.member(ctx, user).expect("failed to get unbanned guild member")).expect("failed to add unbanned user to user list");
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+        if guild.id != GEFOLGE { return; }
         user_list::set(guild.members.values().cloned()).expect("failed to initialize user list");
         let mut chan_map = <VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
@@ -122,19 +113,23 @@ impl EventHandler for Handler {
         voice::dump_info(chan_map).expect("failed to update BitBar plugin");
     }
 
-    fn guild_member_addition(&self, _: Context, _: GuildId, member: Member) {
+    fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
+        if guild_id != GEFOLGE { return; }
         user_list::add(member).expect("failed to add new guild member to user list");
     }
 
-    fn guild_member_removal(&self, _: Context, _: GuildId, user: User, _: Option<Member>) {
+    fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
+        if guild_id != GEFOLGE { return; }
         user_list::remove(user).expect("failed to remove removed guild member from user list");
     }
 
     fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
+        if member.guild_id != GEFOLGE { return; }
         user_list::update(member).expect("failed to update guild member info in user list");
     }
 
-    fn guild_members_chunk(&self, _: Context, _: GuildId, members: HashMap<UserId, Member>) {
+    fn guild_members_chunk(&self, _: Context, guild_id: GuildId, members: HashMap<UserId, Member>) {
+        if guild_id != GEFOLGE { return; }
         for member in members.values() {
             user_list::add(member.clone()).expect("failed to add chunk of guild members to user list");
         }
@@ -142,7 +137,7 @@ impl EventHandler for Handler {
 
     fn message(&self, mut ctx: Context, msg: Message) {
         if msg.author.bot { return; } // ignore bots to prevent message loops
-        if msg.channel_id == werewolf::TEXT_CHANNEL {
+        if ctx.data.read().get::<ConfigChannels>().expect("missing channels config").werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                 match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
                     Ok(()) => { msg.react(ctx, "👀").expect("reaction failed"); }
@@ -153,7 +148,8 @@ impl EventHandler for Handler {
         }
     }
 
-    fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+    fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+        if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
         let user = new.user_id.to_user(&ctx).expect("failed to get user info");
         let mut data = ctx.data.write();
         let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
@@ -314,7 +310,7 @@ fn main() -> Result<(), Error> {
             data.insert::<ConfigChannels>(config.channels);
             data.insert::<VoiceStates>(BTreeMap::default());
             data.insert::<twitch::Config>(config.twitch);
-            data.insert::<werewolf::GameState>(werewolf::GameState::default());
+            data.insert::<werewolf::GameState>(HashMap::default());
         }
         client.with_framework(StandardFramework::new()
             .configure(|c| c

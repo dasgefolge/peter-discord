@@ -2,6 +2,7 @@
 
 use {
     std::{
+        collections::BTreeMap,
         env,
         fmt,
         io::{
@@ -13,6 +14,7 @@ use {
         sync::Arc
     },
     derive_more::From,
+    serde::Deserialize,
     serenity::{
         client::bridge::gateway::ShardManager,
         model::prelude::*,
@@ -113,6 +115,17 @@ impl fmt::Display for Error {
             Error::UserIdParse(ref e) => e.fmt(f)
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigChannels {
+    pub voice: ChannelId,
+    pub werewolf: BTreeMap<GuildId, werewolf::Config>
+}
+
+impl Key for ConfigChannels {
+    type Value = ConfigChannels;
 }
 
 /// `typemap` key for the serenity shard manager.
