@@ -274,7 +274,7 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
 }
 
 fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
-    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("Peter {} thread crashed: {}", thread_kind, e)))).ok()).is_none() {
+    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)))).ok()).is_none() {
         let mut child = Command::new("mail")
             .arg("-s")
             .arg(format!("Peter {} thread crashed", thread_kind))
@@ -284,7 +284,7 @@ fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
             .expect("failed to spawn mail");
         {
             let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
-            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n", thread_kind, e).expect("failed to write to mail stdin");
+            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).expect("failed to write to mail stdin");
         }
         child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
     }
