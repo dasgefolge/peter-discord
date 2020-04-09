@@ -6,6 +6,7 @@ use {
         time::Duration
     },
     futures::prelude::*,
+    parking_lot::Condvar,
     serde::Deserialize,
     serenity::{
         model::prelude::*,
@@ -36,22 +37,39 @@ impl Key for Config {
     type Value = Config;
 }
 
+fn client_and_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<(Client, BTreeMap<UserId, twitch_helix::model::UserId>), Error> {
+    let (ref ctx_arc, ref cond) = *ctx_arc;
+    let mut ctx_guard = ctx_arc.lock(); //TODO async
+    if ctx_guard.is_none() {
+        cond.wait(&mut ctx_guard); //TODO async
+    }
+    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+    let ctx_data = ctx.data.read(); //TODO async
+    let config = ctx_data.get::<Config>().ok_or(Error::MissingTwitchConfig)?;
+    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.client_id, &config.client_secret)?, config.users.clone()))
+}
+
+fn get_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<BTreeMap<UserId, twitch_helix::model::UserId>, Error> {
+    //let (ref ctx_arc, _) = *ctx_arc;
+    let ctx_guard = ctx_arc.0.lock(); //TODO async
+    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+    let ctx_data = ctx.data.read(); //TODO async
+    let config = ctx_data.get::<Config>().ok_or(Error::MissingTwitchConfig)?;
+    Ok(config.users.clone())
+}
+
 /// Notifies #twitch when a Gefolge member starts streaming.
-pub async fn alerts(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!>
-    let (client, users) = {
-        let ctx_guard = ctx_arc.lock();
-        let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-        let ctx_data = ctx.data.read();
-        let config = ctx_data.get::<Config>().ok_or(Error::MissingTwitchConfig)?;
-        (twitch_helix::Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.client_id, &config.client_secret)?, config.users.clone())
-    };
-    let first_status = status(&client, users.clone()).await?;
+pub async fn alerts(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<(), Error> { //TODO change return type to Result<!>
+    let (client, users) = client_and_users(&ctx_arc)?;
+    let first_status = status(&client, users).await?;
     let mut last_status = first_status.keys().cloned().collect::<Vec<_>>();
     loop {
-        let new_status = status(&client, users.clone()).await?; //TODO reload users from config, remove clone from first_status
+        let users = get_users(&ctx_arc)?;
+        let new_status = status(&client, users.clone()).await?;
         for (user_id, stream) in &new_status {
             if !last_status.iter().any(|iter_uid| user_id == iter_uid) {
                 let game = stream.game(&client).await?;
+                let (ref ctx_arc, _) = *ctx_arc;
                 let ctx_guard = ctx_arc.lock();
                 let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
                 CHANNEL.send_message(ctx, |m| m

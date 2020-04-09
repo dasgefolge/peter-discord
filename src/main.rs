@@ -28,6 +28,7 @@ use {
     },
     async_std::task::block_on,
     chrono::prelude::*,
+    parking_lot::Condvar,
     serde::Deserialize,
     serenity::{
         framework::standard::StandardFramework,
@@ -71,11 +72,14 @@ struct ConfigPeter {
 }
 
 #[derive(Default)]
-struct Handler(Arc<Mutex<Option<Context>>>);
+struct Handler(Arc<(Mutex<Option<Context>>, Condvar)>);
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
-        *self.0.lock() = Some(ctx.clone());
+        let (ref ctx_arc, ref cond) = *self.0;
+        let mut ctx_guard = ctx_arc.lock();
+        *ctx_guard = Some(ctx.clone());
+        cond.notify_all();
         let guilds = ready.user.guilds(&ctx).expect("failed to get guilds");
         if guilds.is_empty() {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
@@ -184,10 +188,18 @@ impl EventHandler for Handler {
     }
 }
 
-fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
+fn listen_ipc(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
+    {
+        // make sure Serenity context is available before accepting IPC connections
+        let (ref ctx_arc, ref cond) = *ctx_arc;
+        let mut ctx_guard = ctx_arc.lock(); //TODO async
+        if ctx_guard.is_none() {
+            cond.wait(&mut ctx_guard); //TODO async
+        }
+    }
     for stream in TcpListener::bind(peter::IPC_ADDR).annotate("IPC listener")?.incoming() {
-        if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
-            notify_thread_crash(&ctx_arc.lock(), "IPC", e);
+        if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc.0, stream)) {
+            notify_thread_crash(&ctx_arc.0.lock(), "IPC client", e);
         }
     }
     unreachable!();
@@ -348,7 +360,7 @@ fn main() -> Result<(), Error> {
             thread::Builder::new().name("Peter IPC".into()).spawn(move || {
                 if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_ipc.lock(), "IPC", e);
+                    notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e);
                 }
             })?;
         }
@@ -357,7 +369,7 @@ fn main() -> Result<(), Error> {
             thread::Builder::new().name("Peter Twitch".into()).spawn(move || {
                 if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch.clone())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
+                    notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
                 }
             })?;
         }
