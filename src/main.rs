@@ -54,6 +54,8 @@ use {
     }
 };
 
+const FENHL: UserId = UserId(86841168427495424);
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Config {
@@ -185,7 +187,7 @@ impl EventHandler for Handler {
 fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
     for stream in TcpListener::bind(peter::IPC_ADDR).annotate("IPC listener")?.incoming() {
         if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
-            notify_thread_crash("IPC", e);
+            notify_thread_crash(&ctx_arc.lock(), "IPC", e);
         }
     }
     unreachable!();
@@ -271,24 +273,21 @@ fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Res
     last_error
 }
 
-fn notify_thread_crash(thread_kind: &str, e: Error) {
-    let mut child = Command::new("ssmtp")
-        .arg("fenhl@fenhl.net")
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("failed to spawn ssmtp");
-    {
-        let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
-        write!(
-            stdin,
-            "To: fenhl@fenhl.net\nFrom: {user}@{host}\nSubject: Peter {thread} thread crashed\n\nPeter {thread} thread crashed with the following error:\n{e}\n",
-            user=whoami::username(),
-            host=whoami::hostname(),
-            thread=thread_kind,
-            e=e
-        ).expect("failed to write to ssmtp stdin");
+fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
+    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("Peter {} thread crashed: {}", thread_kind, e)))).ok()).is_none() {
+        let mut child = Command::new("mail")
+            .arg("-s")
+            .arg(format!("Peter {} thread crashed", thread_kind))
+            .arg("fenhl@fenhl.net")
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn mail");
+        {
+            let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
+            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n", thread_kind, e).expect("failed to write to mail stdin");
+        }
+        child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
     }
-    child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
 }
 
 fn main() -> Result<(), Error> {
@@ -347,18 +346,18 @@ fn main() -> Result<(), Error> {
         // listen for IPC commands
         {
             thread::Builder::new().name("Peter IPC".into()).spawn(move || {
-                if let Err(e) = listen_ipc(ctx_arc_ipc) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash("IPC", e);
+                    notify_thread_crash(&ctx_arc_ipc.lock(), "IPC", e);
                 }
             })?;
         }
         // check Twitch stream status
         {
             thread::Builder::new().name("Peter Twitch".into()).spawn(move || {
-                if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch)) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch.clone())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash("Twitch", e);
+                    notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
                 }
             })?;
         }

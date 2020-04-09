@@ -795,7 +795,6 @@ dependencies = [
  "shlex 0.1.1 (git+https://github.com/fenhl/rust-shlex)",
  "twitch_helix 0.1.0 (git+https://github.com/fenhl/rust-twitch-helix)",
  "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "whoami 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1497,11 +1496,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "whoami"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
 name = "winapi"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1718,7 +1712,6 @@ dependencies = [
 "checksum web-sys 0.3.37 (registry+https://github.com/rust-lang/crates.io-index)" = "2d6f51648d8c56c366144378a33290049eafdd784071077f6fe37dae64c1c4cb"
 "checksum webpki 0.21.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f1f50e1972865d6b1adb54167d1c8ed48606004c2c9d0ea5f1eeb34d95e863ef"
 "checksum webpki-roots 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "91cd5736df7f12a964a5067a12c62fa38e1bd8080aff1f80bc29be7c80d19ab4"
-"checksum whoami 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a08eb844b158ea881e81b94556eede7f7e306e4c7b976aad88f49e6e36dec391"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8093091eeb260906a183e6ae1abdba2ef5ef2257a21801128899c3fc699229c6"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
