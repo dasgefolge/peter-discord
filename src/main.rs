@@ -158,8 +158,9 @@ impl EventHandler for Handler {
         if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
         let user = new.user_id.to_user(&ctx).expect("failed to get user info");
         let mut data = ctx.data.write();
+        let ignored_channels = data.get::<ConfigChannels>().expect("missing channels config").ignored.clone();
         let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
-        let was_empty = chan_map.iter().all(|(channel_id, (_, members))| *channel_id == voice::BIBLIOTHEK || members.is_empty());
+        let was_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
         let mut empty_channels = Vec::default();
         for (channel_id, (_, users)) in chan_map.iter_mut() {
             users.retain(|iter_user| iter_user.id != user.id);
@@ -179,7 +180,7 @@ impl EventHandler for Handler {
                 Err(idx) => { users.insert(idx, user.clone()); }
             }
         }
-        let is_empty = chan_map.iter().all(|(channel_id, (_, members))| *channel_id == voice::BIBLIOTHEK || members.is_empty());
+        let is_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
         voice::dump_info(chan_map).expect("failed to update BitBar plugin");
         if was_empty && !is_empty {
             let channel_config = data.get::<ConfigChannels>().expect("missing channels config");

@@ -2,7 +2,10 @@
 
 use {
     std::{
-        collections::BTreeMap,
+        collections::{
+            BTreeMap,
+            BTreeSet
+        },
         env,
         fmt,
         io::{
@@ -120,6 +123,7 @@ impl fmt::Display for Error {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigChannels {
+    pub ignored: BTreeSet<ChannelId>,
     pub voice: ChannelId,
     pub werewolf: BTreeMap<GuildId, werewolf::Config>
 }

@@ -14,9 +14,6 @@ use {
     typemap::Key
 };
 
-/// The voice channel Bibliothek, for which no notifications are sent to #voice.
-pub const BIBLIOTHEK: ChannelId = ChannelId(401654567819018252);
-
 /// `typemap` key for the voice state data required by the BitBar plugin: A mapping of voice channel names to users.
 pub struct VoiceStates;
 
