@@ -29,7 +29,6 @@ use {
     async_std::task::block_on,
     chrono::prelude::*,
     parking_lot::Condvar,
-    serde::Deserialize,
     serenity::{
         framework::standard::StandardFramework,
         model::prelude::*,
@@ -38,7 +37,7 @@ use {
     },
     typemap::Key,
     peter::{
-        ConfigChannels,
+        Config,
         Error,
         GEFOLGE,
         IntoResultExt as _,
@@ -56,20 +55,6 @@ use {
 };
 
 const FENHL: UserId = UserId(86841168427495424);
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Config {
-    channels: ConfigChannels,
-    peter: ConfigPeter,
-    twitch: twitch::Config
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ConfigPeter {
-    bot_token: String
-}
 
 #[derive(Default)]
 struct Handler(Arc<(Mutex<Option<Context>>, Condvar)>);
@@ -143,7 +128,7 @@ impl EventHandler for Handler {
 
     fn message(&self, mut ctx: Context, msg: Message) {
         if msg.author.bot { return; } // ignore bots to prevent message loops
-        if ctx.data.read().get::<ConfigChannels>().expect("missing channels config").werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
+        if ctx.data.read().get::<Config>().expect("missing config").channels.werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
                 match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
                     Ok(()) => { msg.react(ctx, "👀").expect("reaction failed"); }
@@ -158,7 +143,7 @@ impl EventHandler for Handler {
         if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
         let user = new.user_id.to_user(&ctx).expect("failed to get user info");
         let mut data = ctx.data.write();
-        let ignored_channels = data.get::<ConfigChannels>().expect("missing channels config").ignored.clone();
+        let ignored_channels = data.get::<Config>().expect("missing config").channels.ignored.clone();
         let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
         let was_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
         let mut empty_channels = Vec::default();
@@ -183,8 +168,8 @@ impl EventHandler for Handler {
         let is_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
         voice::dump_info(chan_map).expect("failed to update BitBar plugin");
         if was_empty && !is_empty {
-            let channel_config = data.get::<ConfigChannels>().expect("missing channels config");
-            channel_config.voice.say(&ctx, MessageBuilder::default().push("Discord Party? ").mention(&user).push(" ist jetzt im voice channel ").mention(&chan_id.unwrap())).expect("failed to send channel message"); //TODO
+            let config = data.get::<Config>().expect("missing config");
+            config.channels.voice.say(&ctx, MessageBuilder::default().push("Discord Party? ").mention(&user).push(" ist jetzt im voice channel ").mention(&chan_id.unwrap())).expect("failed to send channel message"); //TODO don't prefix channel name with `#`
         }
     }
 }
@@ -319,9 +304,8 @@ fn main() -> Result<(), Error> {
         {
             let mut data = client.data.write();
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-            data.insert::<ConfigChannels>(config.channels);
+            data.insert::<Config>(config);
             data.insert::<VoiceStates>(BTreeMap::default());
-            data.insert::<twitch::Config>(config.twitch);
             data.insert::<werewolf::GameState>(HashMap::default());
         }
         client.with_framework(StandardFramework::new()

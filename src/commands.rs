@@ -20,7 +20,9 @@ use {
         prelude::*
     },
     crate::{
+        Config,
         emoji,
+        parse,
         shut_down,
         werewolf::{
             COMMAND_IN_COMMAND,
@@ -28,6 +30,64 @@ use {
         }
     }
 };
+
+#[command]
+pub fn iam(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Some(sender) = msg.member(&ctx) {
+        sender
+    } else {
+        //TODO get from `GEFOLGE` guild instead of erroring
+        msg.reply(ctx, "dieser Befehl funktioniert aus technischen Gründen aktuell nicht in Privatnachrichten")?;
+        return Ok(());
+    };
+    let mut cmd = args.message();
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+        role
+    } else {
+        msg.reply(ctx, "diese Rolle existiert nicht")?;
+        return Ok(());
+    };
+    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "diese Rolle ist nicht selbstzuweisbar")?;
+        return Ok(());
+    }
+    if sender.roles.contains(&role) {
+        msg.reply(ctx, "du hast diese Rolle schon")?;
+        return Ok(());
+    }
+    sender.add_role(&ctx, role)?;
+    msg.reply(ctx, "Rolle zugewiesen")?;
+    Ok(())
+}
+
+#[command]
+pub fn iamn(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Some(sender) = msg.member(&ctx) {
+        sender
+    } else {
+        //TODO get from `GEFOLGE` guild instead of erroring
+        msg.reply(ctx, "dieser Befehl funktioniert aus technischen Gründen aktuell nicht in Privatnachrichten")?;
+        return Ok(());
+    };
+    let mut cmd = args.message();
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+        role
+    } else {
+        msg.reply(ctx, "diese Rolle existiert nicht")?;
+        return Ok(());
+    };
+    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "diese Rolle ist nicht selbstzuweisbar")?;
+        return Ok(());
+    }
+    if !sender.roles.contains(&role) {
+        msg.reply(ctx, "du hast diese Rolle sowieso nicht")?;
+        return Ok(());
+    }
+    sender.remove_role(&ctx, role)?;
+    msg.reply(ctx, "Rollenzuweisung entfernt")?;
+    Ok(())
+}
 
 #[command]
 pub fn ping(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
@@ -79,6 +139,8 @@ pub fn test(_: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[group]
 #[commands(
+    iam,
+    iamn,
     command_in,
     command_out,
     ping,

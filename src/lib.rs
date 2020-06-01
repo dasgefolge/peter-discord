@@ -50,14 +50,14 @@ pub enum Error {
     GameAction(String),
     Io(io::Error),
     Json(serde_json::Error),
+    /// Returned if the config is not present in Serenity context.
+    MissingConfig,
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
     /// Returned by the user list handler if a user has no join date.
     MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
-    /// Returned if the Twitch API client ID is missing in the configuration.
-    MissingTwitchConfig,
     QwwStartGame(quantum_werewolf::game::state::StartGameError),
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
@@ -105,10 +105,10 @@ impl fmt::Display for Error {
             Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
             Error::Io(ref e) => e.fmt(f),
             Error::Json(ref e) => e.fmt(f),
+            Error::MissingConfig => write!(f, "config missing in Serenity context"),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            Error::MissingTwitchConfig => write!(f, "Twitch credentials not found in config file"),
             Error::QwwStartGame(ref e) => e.fmt(f),
             Error::RoleIdParse(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
@@ -122,14 +122,29 @@ impl fmt::Display for Error {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Config {
+    pub channels: ConfigChannels,
+    pub peter: ConfigPeter,
+    twitch: twitch::Config
+}
+
+impl Key for Config {
+    type Value = Config;
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConfigChannels {
     pub ignored: BTreeSet<ChannelId>,
     pub voice: ChannelId,
     pub werewolf: BTreeMap<GuildId, werewolf::Config>
 }
 
-impl Key for ConfigChannels {
-    type Value = ConfigChannels;
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigPeter {
+    pub bot_token: String,
+    self_assignable_roles: BTreeSet<RoleId>
 }
 
 /// `typemap` key for the serenity shard manager.

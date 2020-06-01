@@ -17,7 +17,6 @@ use {
         Client,
         model::Stream
     },
-    typemap::Key,
     crate::Error
 };
 
@@ -33,10 +32,6 @@ pub struct Config {
     users: BTreeMap<UserId, twitch_helix::model::UserId>
 }
 
-impl Key for Config {
-    type Value = Config;
-}
-
 fn client_and_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<(Client, BTreeMap<UserId, twitch_helix::model::UserId>), Error> {
     let (ref ctx_arc, ref cond) = *ctx_arc;
     let mut ctx_guard = ctx_arc.lock(); //TODO async
@@ -45,8 +40,8 @@ fn client_and_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<(Clie
     }
     let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
     let ctx_data = ctx.data.read(); //TODO async
-    let config = ctx_data.get::<Config>().ok_or(Error::MissingTwitchConfig)?;
-    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.client_id, &config.client_secret)?, config.users.clone()))
+    let config = ctx_data.get::<crate::Config>().ok_or(Error::MissingConfig)?;
+    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.twitch.client_id, &config.twitch.client_secret)?, config.twitch.users.clone()))
 }
 
 fn get_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<BTreeMap<UserId, twitch_helix::model::UserId>, Error> {
@@ -54,8 +49,8 @@ fn get_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<BTreeMap<Use
     let ctx_guard = ctx_arc.0.lock(); //TODO async
     let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
     let ctx_data = ctx.data.read(); //TODO async
-    let config = ctx_data.get::<Config>().ok_or(Error::MissingTwitchConfig)?;
-    Ok(config.users.clone())
+    let config = ctx_data.get::<crate::Config>().ok_or(Error::MissingConfig)?;
+    Ok(config.twitch.users.clone())
 }
 
 /// Notifies #twitch when a Gefolge member starts streaming.

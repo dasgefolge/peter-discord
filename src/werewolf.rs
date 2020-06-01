@@ -45,7 +45,6 @@ use {
     },
     typemap::Key,
     crate::{
-        ConfigChannels,
         Error,
         lang::*,
         parse
@@ -256,7 +255,7 @@ impl Key for GameState {
 #[name = "channel_check"]
 fn channel_check(ctx: &mut Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> CheckResult {
     if let Some(guild_id) = msg.guild_id {
-        if let Some(conf) = ctx.data.read().get::<ConfigChannels>().expect("missing channels config").werewolf.get(&guild_id) {
+        if let Some(conf) = ctx.data.read().get::<crate::Config>().expect("missing config").channels.werewolf.get(&guild_id) {
             if msg.channel_id == conf.channel {
                 CheckResult::Success
             } else {
@@ -276,7 +275,7 @@ pub fn command_in(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
     {
         let mut data = ctx.data.write();
-        let conf = *data.get::<ConfigChannels>().expect("missing channels config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+        let conf = *data.get::<crate::Config>().expect("missing config").channels.werewolf.get(&guild).expect("unconfigured guild but check passed");
         let state = data.get_mut::<GameState>().expect("missing Werewolf game state");
         if state.iter().any(|(&iter_guild, iter_state)| iter_guild != guild && iter_state.state.secret_ids().map_or(false, |secret_ids| secret_ids.contains(&msg.author.id))) {
             msg.reply(&ctx, "du bist schon in einem Spiel auf einem anderen Server")?;
@@ -311,7 +310,7 @@ pub fn command_out(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
     {
         let mut data = ctx.data.write();
-        let conf = *data.get::<ConfigChannels>().expect("missing channels config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+        let conf = *data.get::<crate::Config>().expect("missing config").channels.werewolf.get(&guild).expect("unconfigured guild but check passed");
         let state = data.get_mut::<GameState>().expect("missing Werewolf game state").entry(guild).or_insert_with(|| GameState::new(guild, conf));
         if let State::Complete(_) = state.state {
             state.state = State::default();
