@@ -3,6 +3,7 @@
 # Features
 
 * [Quantum Werewolf](https://github.com/dasgefolge/quantum-werewolf) moderation
+* self-assignable roles
 * reaction-based polls
 * maintains the access list for [gefolge.org](https://github.com/dasgefolge/gefolge.org)
 * sends notifications (mostly about events) received from [gefolge.org](https://github.com/dasgefolge/gefolge.org) via the IPC interface
