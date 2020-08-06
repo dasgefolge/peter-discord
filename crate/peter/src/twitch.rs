@@ -28,7 +28,7 @@ const ROLE: RoleId = RoleId(668534306515320833);
 pub struct Config {
     #[serde(rename = "clientID")]
     client_id: String,
-    client_secret: String,
+    oauth_token: String,
     users: BTreeMap<UserId, twitch_helix::model::UserId>
 }
 
@@ -41,7 +41,7 @@ fn client_and_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<(Clie
     let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
     let ctx_data = ctx.data.read(); //TODO async
     let config = ctx_data.get::<crate::Config>().ok_or(Error::MissingConfig)?;
-    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.twitch.client_id, &config.twitch.client_secret)?, config.twitch.users.clone()))
+    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.twitch.client_id, &config.twitch.oauth_token)?, config.twitch.users.clone())) //TODO automatically renew OAuth token
 }
 
 fn get_users(ctx_arc: &(Mutex<Option<Context>>, Condvar)) -> Result<BTreeMap<UserId, twitch_helix::model::UserId>, Error> {
