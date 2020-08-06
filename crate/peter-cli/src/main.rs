@@ -13,7 +13,6 @@ use {
         thread,
         time::Duration
     },
-    async_std::task::block_on,
     chrono::prelude::*,
     parking_lot::Condvar,
     serenity::{
@@ -22,6 +21,7 @@ use {
         prelude::*,
         utils::MessageBuilder
     },
+    tokio::time::delay_for,
     typemap::Key,
     peter::{
         Config,
@@ -163,7 +163,8 @@ impl EventHandler for Handler {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
@@ -226,16 +227,16 @@ fn main() -> Result<(), Error> {
         }
         // check Twitch stream status
         {
-            thread::Builder::new().name("Peter Twitch".into()).spawn(move || {
-                if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch.clone())) { //TODO remove `if` after changing from `()` to `!`
+            tokio::spawn(async move {
+                if let Err(e) = twitch::alerts(ctx_arc_twitch.clone()).await { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
                     peter::notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
                 }
-            })?;
+            });
         }
         // connect to Discord
         client.start_autosharded()?;
-        thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
+        delay_for(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
     }
     Ok(())
 }
