@@ -10,10 +10,12 @@ use {
         fmt,
         io::{
             self,
-            BufReader,
             prelude::*
         },
-        net::TcpStream,
+        process::{
+            Command,
+            Stdio
+        },
         sync::Arc
     },
     derive_more::From,
@@ -28,6 +30,7 @@ use {
 
 pub mod commands;
 pub mod emoji;
+pub mod ipc;
 pub mod lang;
 pub mod parse;
 pub mod twitch;
@@ -35,11 +38,8 @@ pub mod user_list;
 pub mod voice;
 pub mod werewolf;
 
-/// The Gefolge guild's ID.
+const FENHL: UserId = UserId(86841168427495424);
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
-
-/// The address and port where the bot listens for IPC commands.
-pub const IPC_ADDR: &str = "127.0.0.1:18807";
 
 #[derive(Debug, From)]
 pub enum Error {
@@ -49,6 +49,7 @@ pub enum Error {
     #[from(ignore)]
     GameAction(String),
     Io(io::Error),
+    Ipc(crate::ipc::Error),
     Json(serde_json::Error),
     /// Returned if the config is not present in Serenity context.
     MissingConfig,
@@ -61,13 +62,7 @@ pub enum Error {
     QwwStartGame(quantum_werewolf::game::state::StartGameError),
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
-    /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
-    #[from(ignore)]
-    Shlex(shlex::Error, String),
     Twitch(twitch_helix::Error),
-    /// Returned from `listen_ipc` if an unknown command is received.
-    #[from(ignore)]
-    UnknownCommand(Vec<String>),
     UserIdParse(UserIdParseError)
 }
 
@@ -98,24 +93,23 @@ impl<T, E: IntoResultExt> IntoResultExt for Result<T, E> {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Annotated(ref msg, ref e) => write!(f, "{}: {}", msg, e),
-            Error::ChannelIdParse(ref e) => e.fmt(f),
-            Error::Env(ref e) => e.fmt(f),
-            Error::GameAction(ref s) => write!(f, "invalid game action: {}", s),
-            Error::Io(ref e) => e.fmt(f),
-            Error::Json(ref e) => e.fmt(f),
+        match self {
+            Error::Annotated(msg, e) => write!(f, "{}: {}", msg, e),
+            Error::ChannelIdParse(e) => e.fmt(f),
+            Error::Env(e) => e.fmt(f),
+            Error::GameAction(s) => write!(f, "invalid game action: {}", s),
+            Error::Io(e) => e.fmt(f),
+            Error::Ipc(e) => e.fmt(f),
+            Error::Json(e) => e.fmt(f),
             Error::MissingConfig => write!(f, "config missing in Serenity context"),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            Error::QwwStartGame(ref e) => e.fmt(f),
-            Error::RoleIdParse(ref e) => e.fmt(f),
-            Error::Serenity(ref e) => e.fmt(f),
-            Error::Shlex(e, ref line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
-            Error::Twitch(ref e) => e.fmt(f),
-            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
-            Error::UserIdParse(ref e) => e.fmt(f)
+            Error::QwwStartGame(e) => e.fmt(f),
+            Error::RoleIdParse(e) => e.fmt(f),
+            Error::Serenity(e) => e.fmt(f),
+            Error::Twitch(e) => e.fmt(f),
+            Error::UserIdParse(e) => e.fmt(f)
         }
     }
 }
@@ -154,16 +148,21 @@ impl Key for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
-/// Sends an IPC command to the bot.
-///
-/// **TODO:** document available IPC commands
-pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> Result<String, Error> {
-    let mut stream = TcpStream::connect(IPC_ADDR)?;
-    writeln!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
-    let mut buf = String::default();
-    BufReader::new(stream).read_line(&mut buf)?;
-    if buf.pop() != Some('\n') { return Err(Error::MissingNewline); }
-    Ok(buf)
+pub fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
+    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)))).ok()).is_none() {
+        let mut child = Command::new("mail")
+            .arg("-s")
+            .arg(format!("Peter {} thread crashed", thread_kind))
+            .arg("fenhl@fenhl.net")
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn mail");
+        {
+            let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
+            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).expect("failed to write to mail stdin");
+        }
+        child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
+    }
 }
 
 /// Utility function to shut down all shards.

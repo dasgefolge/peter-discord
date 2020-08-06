@@ -8,20 +8,7 @@ use {
         },
         env,
         fs::File,
-        io::{
-            self,
-            BufReader,
-            prelude::*
-        },
         iter,
-        net::{
-            TcpListener,
-            TcpStream
-        },
-        process::{
-            Command,
-            Stdio
-        },
         sync::Arc,
         thread,
         time::Duration
@@ -40,7 +27,6 @@ use {
         Config,
         Error,
         GEFOLGE,
-        IntoResultExt as _,
         ShardManagerContainer,
         commands,
         shut_down,
@@ -53,8 +39,6 @@ use {
         werewolf
     }
 };
-
-const FENHL: UserId = UserId(86841168427495424);
 
 #[derive(Default)]
 struct Handler(Arc<(Mutex<Option<Context>>, Condvar)>);
@@ -169,122 +153,13 @@ impl EventHandler for Handler {
         voice::dump_info(chan_map).expect("failed to update BitBar plugin");
         if was_empty && !is_empty {
             let config = data.get::<Config>().expect("missing config");
-            config.channels.voice.say(&ctx, MessageBuilder::default().push("Discord Party? ").mention(&user).push(" ist jetzt im voice channel ").mention(&chan_id.unwrap())).expect("failed to send channel message"); //TODO don't prefix channel name with `#`
+            let mut msg_builder = MessageBuilder::default();
+            msg_builder.push("Discord Party? ");
+            MessageBuilder::mention(&mut msg_builder, &user);
+            msg_builder.push(" ist jetzt im voice channel ");
+            msg_builder.mention(&chan_id.unwrap());
+            config.channels.voice.say(&ctx, msg_builder).expect("failed to send channel message"); //TODO don't prefix channel name with `#`
         }
-    }
-}
-
-fn listen_ipc(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
-    {
-        // make sure Serenity context is available before accepting IPC connections
-        let (ref ctx_arc, ref cond) = *ctx_arc;
-        let mut ctx_guard = ctx_arc.lock(); //TODO async
-        if ctx_guard.is_none() {
-            cond.wait(&mut ctx_guard); //TODO async
-        }
-    }
-    for stream in TcpListener::bind(peter::IPC_ADDR).annotate("IPC listener")?.incoming() {
-        if let Err(e) = stream.map_err(|e| e.annotate("incoming stream")).and_then(|stream| handle_ipc_client(&ctx_arc.0, stream)) {
-            notify_thread_crash(&ctx_arc.0.lock(), "IPC client", e);
-        }
-    }
-    unreachable!();
-}
-
-fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<(), Error> {
-    let mut last_error = Ok(());
-    let mut buf = String::default();
-    for line in BufReader::new(&stream).lines() {
-        let line = match line {
-            Ok(line) => line,
-            Err(e) => if e.kind() == io::ErrorKind::ConnectionReset {
-                break; // connection reset by peer, consider the IPC session terminated
-            } else {
-                return Err(e.annotate("IPC client line"));
-            }
-        };
-        buf.push_str(&line);
-        let args = match shlex::split(&buf) {
-            Ok(args) => {
-                last_error = Ok(());
-                buf.clear();
-                args
-            }
-            Err(e) => {
-                last_error = Err(Error::Shlex(e, line));
-                buf.push('\n');
-                continue;
-            }
-        };
-        match &args[0][..] {
-            "add-role" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let user = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                let role = args[2].parse::<RoleId>().annotate("failed to parse role snowflake")?;
-                let roles = iter::once(role).chain(GEFOLGE.member(ctx, user).annotate("failed to get member data")?.roles.into_iter());
-                GEFOLGE.edit_member(ctx, user, |m| m.roles(roles)).annotate("failed to edit roles")?;
-                writeln!(&mut &stream, "role added")?;
-            }
-            "channel-msg" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
-                channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
-                writeln!(&mut &stream, "message sent")?;
-            }
-            "msg" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let rcpt = args[1].parse::<UserId>().annotate("failed to parse user snowflake")?;
-                rcpt.create_dm_channel(ctx).annotate("failed to get/create DM channel")?.say(ctx, &args[2]).annotate("failed to send DM")?;
-                writeln!(&mut &stream, "message sent")?;
-            }
-            "quit" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                shut_down(&ctx);
-                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                writeln!(&mut &stream, "shutdown complete")?;
-            }
-            "set-display-name" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
-                let new_display_name = &args[2];
-                match GEFOLGE.edit_member(ctx, &user, |e| e.nickname(new_display_name)) {
-                    Ok(()) => {
-                        writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
-                    }
-                    Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
-                        writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
-                    } else {
-                        //TODO use box patterns to eliminate this branch and use the next match arm instead
-                        return Err(serenity::Error::Http(e)).annotate("failed to edit member");
-                    },
-                    Err(e) => { return Err(e).annotate("failed to edit member"); }
-                }
-            }
-            _ => { return Err(Error::UnknownCommand(args)); }
-        }
-    }
-    last_error
-}
-
-fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
-    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)))).ok()).is_none() {
-        let mut child = Command::new("mail")
-            .arg("-s")
-            .arg(format!("Peter {} thread crashed", thread_kind))
-            .arg("fenhl@fenhl.net")
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn mail");
-        {
-            let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
-            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).expect("failed to write to mail stdin");
-        }
-        child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
     }
 }
 
@@ -292,7 +167,7 @@ fn main() -> Result<(), Error> {
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
-        println!("{}", peter::send_ipc_command(args)?);
+        println!("{}", peter::ipc::send(args)?);
     } else {
         // read config
         let config = serde_json::from_reader::<_, Config>(File::open("/usr/local/share/fidera/config.json")?)?;
@@ -343,9 +218,9 @@ fn main() -> Result<(), Error> {
         // listen for IPC commands
         {
             thread::Builder::new().name("Peter IPC".into()).spawn(move || {
-                if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = peter::ipc::listen(ctx_arc_ipc.clone(), &|ctx, thread_kind, e| peter::notify_thread_crash(ctx, thread_kind, e.into())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e);
+                    peter::notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e.into());
                 }
             })?;
         }
@@ -354,7 +229,7 @@ fn main() -> Result<(), Error> {
             thread::Builder::new().name("Peter Twitch".into()).spawn(move || {
                 if let Err(e) = block_on(twitch::alerts(ctx_arc_twitch.clone())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
+                    peter::notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
                 }
             })?;
         }
