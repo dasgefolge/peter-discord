@@ -1543,7 +1543,7 @@ dependencies = [
 [[package]]
 name = "twitch_helix"
 version = "0.1.0"
-source = "git+https://github.com/fenhl/rust-twitch-helix#7e1b63c5a66846740ac5787b9ff0355f79406d12"
+source = "git+https://github.com/fenhl/rust-twitch-helix#a2e6912a6b85ce0264f3f98bd62efcda69121a3a"
 dependencies = [
  "async-std 1.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.13 (registry+https://github.com/rust-lang/crates.io-index)",
