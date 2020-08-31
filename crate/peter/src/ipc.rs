@@ -1,6 +1,5 @@
 use {
     std::{
-        //io::prelude::*,
         iter,
         thread,
         time::Duration
@@ -44,9 +43,11 @@ serenity_utils::ipc! {
     }
 
     /// Changes the display name for the given user in the Gefolge guild to the given string.
+    ///
+    /// If the given string is equal to the user's username, the display name will instead be removed.
     fn set_display_name(ctx: &Context, user_id: UserId, new_display_name: String) -> Result<(), String> {
         let user = user_id.to_user(ctx).map_err(|e| format!("failed to get user for set-display-name: {}", e))?;
-        GEFOLGE.edit_member(ctx, &user, |e| e.nickname(new_display_name)).map_err(|e| match e {
+        GEFOLGE.edit_member(ctx, &user, |e| e.nickname(if user.name == new_display_name { "" } else { &new_display_name })).map_err(|e| match e {
             serenity::Error::Http(e) => if let HttpError::UnsuccessfulRequest(response) = *e {
                 format!("failed to set display name: {:?}", response)
             } else {

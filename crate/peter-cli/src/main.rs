@@ -217,6 +217,7 @@ async fn main() -> Result<(), Error> {
             .group(&commands::GROUP)
         );
         // listen for IPC commands
+        //TODO rewrite using tokio
         {
             thread::Builder::new().name("Peter IPC".into()).spawn(move || {
                 if let Err(e) = peter::ipc::listen(ctx_arc_ipc.clone(), &|ctx, thread_kind, e| peter::notify_thread_crash(ctx, thread_kind, e.into())) { //TODO remove `if` after changing from `()` to `!`
