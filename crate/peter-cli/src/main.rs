@@ -229,9 +229,12 @@ async fn main() -> Result<(), Error> {
         // check Twitch stream status
         {
             tokio::spawn(async move {
-                if let Err(e) = twitch::alerts(ctx_arc_twitch.clone()).await { //TODO remove `if` after changing from `()` to `!`
-                    eprintln!("{}", e);
-                    peter::notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
+                for i in 0.. {
+                    if let Err(e) = twitch::alerts(ctx_arc_twitch.clone()).await { //TODO remove `if` after changing from `()` to `!`
+                        eprintln!("{}", e);
+                        peter::notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
+                    }
+                    delay_for(Duration::from_secs(i)).await; // wait before attempting to reconnect
                 }
             });
         }
