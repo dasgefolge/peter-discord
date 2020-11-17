@@ -48,11 +48,16 @@ pub async fn add(member: Member, join_date: Option<DateTime<Utc>>) -> Result<(),
 }
 
 /// Remove a Discord account from the list of Gefolge guild members.
-pub async fn remove<U: Into<UserId>>(user: U) -> io::Result<DateTime<Utc>> {
-    let mut f = File::open(format!("{}/{}.json", PROFILES_DIR, user.into())).await?;
-    let mut buf = Vec::default();
-    f.read_to_end(&mut buf).await?;
-    let join_date = serde_json::from_slice::<Profile>(&buf)?.joined;
+pub async fn remove<U: Into<UserId>>(user: U) -> io::Result<Option<DateTime<Utc>>> {
+    let join_date = match File::open(format!("{}/{}.json", PROFILES_DIR, user.into())).await {
+        Ok(mut f) => {
+            let mut buf = Vec::default();
+            f.read_to_end(&mut buf).await?;
+            Some(serde_json::from_slice::<Profile>(&buf)?.joined)
+        }
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e),
+    };
     /*
     match fs::remove_file(format!("{}/{}.json", PROFILES_DIR, user.into())).await {
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
@@ -79,6 +84,6 @@ pub async fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<(), Error> 
 /// Update the data for a guild member. Equivalent to `remove` followed by `add`.
 pub async fn update(member: Member) -> Result<(), Error> {
     let join_date = remove(&member).await?;
-    add(member, Some(join_date)).await?;
+    add(member, join_date).await?;
     Ok(())
 }

@@ -51,6 +51,7 @@ impl Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
+        println!("Ready");
         if let Some(tx) = self.0.lock().await.take() {
             if let Err(_) = tx.send(ctx.clone()) {
                 panic!("failed to send context")
@@ -65,11 +66,13 @@ impl EventHandler for Handler {
     }
 
     async fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
+        println!("User {} was banned from {}", user.name, guild_id);
         if guild_id != GEFOLGE { return; }
         user_list::remove(user).await.expect("failed to remove banned user from user list");
     }
 
     async fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
+        println!("User {} was unbanned from {}", user.name, guild_id);
         if guild_id != GEFOLGE { return; }
         user_list::add(guild_id.member(ctx, user).await.expect("failed to get unbanned guild member"), None).await.expect("failed to add unbanned user to user list");
     }
@@ -99,21 +102,25 @@ impl EventHandler for Handler {
     }
 
     async fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
+        println!("User {} joined {}", member.user.name, guild_id);
         if guild_id != GEFOLGE { return; }
         user_list::add(member, None).await.expect("failed to add new guild member to user list");
     }
 
     async fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
+        println!("User {} left {}", user.name, guild_id);
         if guild_id != GEFOLGE { return; }
         user_list::remove(user).await.expect("failed to remove removed guild member from user list");
     }
 
     async fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
+        println!("Member data for {} updated", member.user.name);
         if member.guild_id != GEFOLGE { return; }
         user_list::update(member).await.expect("failed to update guild member info in user list");
     }
 
     async fn guild_members_chunk(&self, _: Context, chunk: GuildMembersChunkEvent) {
+        println!("Received chunk of members for guild {}", chunk.guild_id);
         if chunk.guild_id != GEFOLGE { return; }
         for member in chunk.members.values() {
             user_list::add(member.clone(), None).await.expect("failed to add chunk of guild members to user list");
@@ -134,6 +141,7 @@ impl EventHandler for Handler {
     }
 
     async fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+        println!("Voice states in guild {:?} updated", guild_id);
         if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
         let user = new.user_id.to_user(&ctx).await.expect("failed to get user info");
         let mut data = ctx.data.write().await;
