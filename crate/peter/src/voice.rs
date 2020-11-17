@@ -3,28 +3,34 @@
 use {
     std::{
         collections::BTreeMap,
-        fs::File,
-        io
+        io,
     },
     serde_json::{
         self,
-        json
+        json,
     },
-    serenity::model::prelude::*,
-    typemap::Key
+    serenity::{
+        model::prelude::*,
+        prelude::*,
+    },
+    tokio::{
+        fs::File,
+        prelude::*,
+    },
 };
 
-/// `typemap` key for the voice state data required by the BitBar plugin: A mapping of voice channel names to users.
-pub struct VoiceStates;
+/// `typemap` key for the voice state data required by the gefolge.org API: A mapping of voice channel names to users.
+#[derive(Default)]
+pub struct VoiceStates(pub BTreeMap<ChannelId, (String, Vec<User>)>);
 
-impl Key for VoiceStates {
-    type Value = BTreeMap<ChannelId, (String, Vec<User>)>;
+impl TypeMapKey for VoiceStates {
+    type Value = VoiceStates;
 }
 
 /// Takes a mapping from voice channel names to users and dumps the output for the gefolge.org API.
-pub fn dump_info(voice_states: &<VoiceStates as Key>::Value) -> io::Result<()> {
-    let f = File::create("/usr/local/share/fidera/discord/voice-state.json")?;
-    serde_json::to_writer(f, &json!({
+pub async fn dump_info(VoiceStates(voice_states): &VoiceStates) -> io::Result<()> {
+    let mut f = File::create("/usr/local/share/fidera/discord/voice-state.json").await?;
+    let buf = serde_json::to_vec(&json!({
         "channels": voice_states.into_iter()
             .map(|(channel_id, (channel_name, members))| json!({
                 "members": members.into_iter()
@@ -39,5 +45,6 @@ pub fn dump_info(voice_states: &<VoiceStates as Key>::Value) -> io::Result<()> {
             }))
             .collect::<Vec<_>>()
     }))?;
+    f.write_all(&buf).await?;
     Ok(())
 }

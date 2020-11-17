@@ -45,6 +45,8 @@ impl fmt::Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 /// An iterator over all the emoji in a message.
 ///
 /// Note that the `animated` field of yielded values is bogus and should not be relied upon.

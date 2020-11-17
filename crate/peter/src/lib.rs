@@ -4,28 +4,26 @@ use {
     std::{
         collections::{
             BTreeMap,
-            BTreeSet
+            BTreeSet,
         },
         env,
         fmt,
-        io::{
-            self,
-            prelude::*
-        },
-        process::{
-            Command,
-            Stdio
-        },
-        sync::Arc
+        io,
+        process::Stdio,
+        sync::Arc,
     },
     derive_more::From,
     serde::Deserialize,
     serenity::{
         client::bridge::gateway::ShardManager,
         model::prelude::*,
-        prelude::*
+        prelude::*,
     },
-    typemap::Key
+    serenity_utils::RwFuture,
+    tokio::{
+        io::AsyncWriteExt as _,
+        process::Command,
+    },
 };
 
 pub mod commands;
@@ -63,7 +61,7 @@ pub enum Error {
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
     Twitch(twitch_helix::Error),
-    UserIdParse(UserIdParseError)
+    UserIdParse(UserIdParseError),
 }
 
 /// A helper trait for annotating errors with more informative error messages.
@@ -109,10 +107,12 @@ impl fmt::Display for Error {
             Error::RoleIdParse(e) => e.fmt(f),
             Error::Serenity(e) => e.fmt(f),
             Error::Twitch(e) => e.fmt(f),
-            Error::UserIdParse(e) => e.fmt(f)
+            Error::UserIdParse(e) => e.fmt(f),
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,7 +122,7 @@ pub struct Config {
     twitch: twitch::Config
 }
 
-impl Key for Config {
+impl TypeMapKey for Config {
     type Value = Config;
 }
 
@@ -144,31 +144,40 @@ pub struct ConfigPeter {
 /// `typemap` key for the serenity shard manager.
 pub struct ShardManagerContainer;
 
-impl Key for ShardManagerContainer {
+impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
-pub fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
-    if ctx.as_ref().and_then(|ctx| FENHL.to_user(ctx).and_then(|fenhl| fenhl.dm(ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)))).ok()).is_none() {
-        let mut child = Command::new("mail")
-            .arg("-s")
-            .arg(format!("Peter {} thread crashed", thread_kind))
-            .arg("fenhl@fenhl.net")
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn mail");
-        {
-            let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
-            write!(stdin, "Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).expect("failed to write to mail stdin");
+pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>) {
+    let ctx = ctx.read().await;
+    let e = e.into();
+    if let Ok(fenhl) = FENHL.to_user(&*ctx).await {
+        if fenhl.dm(&*ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e))).await.is_ok() {
+            return
         }
-        child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
+    }
+    let mut child = Command::new("mail")
+        .arg("-s")
+        .arg(format!("Peter {} thread crashed", thread_kind))
+        .arg("fenhl@fenhl.net")
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn mail");
+    {
+        let input = format!("Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).into_bytes();
+        let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
+        stdin.write_all(&input).await.expect("failed to write to mail stdin");
+    }
+    let exit_status = child.await.expect("failed to wait for mail subprocess");
+    if !exit_status.success() {
+        panic!("mail exited with {} while notifying thread crash", exit_status)
     }
 }
 
 /// Utility function to shut down all shards.
-pub fn shut_down(ctx: &Context) {
-    ctx.invisible(); // hack to prevent the bot showing as online when it's not
-    let data = ctx.data.read();
-    let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock();
-    shard_manager.shutdown_all();
+pub async fn shut_down(ctx: &Context) {
+    ctx.invisible().await; // hack to prevent the bot showing as online when it's not
+    let data = ctx.data.read().await;
+    let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock().await;
+    shard_manager.shutdown_all().await;
 }

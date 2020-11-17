@@ -2,27 +2,26 @@
 
 use {
     std::{
-        collections::{
-            BTreeMap,
-            HashMap
-        },
+        collections::HashMap,
         env,
         fs::File,
         iter,
         sync::Arc,
-        thread,
-        time::Duration
+        time::Duration,
     },
+    async_trait::async_trait,
     chrono::prelude::*,
-    parking_lot::Condvar,
     serenity::{
+        client::bridge::gateway::GatewayIntents,
         framework::standard::StandardFramework,
+        futures::TryFutureExt as _,
+        http::Http,
         model::prelude::*,
         prelude::*,
-        utils::MessageBuilder
+        utils::MessageBuilder,
     },
+    serenity_utils::RwFuture,
     tokio::time::delay_for,
-    typemap::Key,
     peter::{
         Config,
         Error,
@@ -34,101 +33,112 @@ use {
         user_list,
         voice::{
             self,
-            VoiceStates
+            VoiceStates,
         },
-        werewolf
-    }
+        werewolf,
+    },
 };
 
-#[derive(Default)]
-struct Handler(Arc<(Mutex<Option<Context>>, Condvar)>);
+struct Handler(Arc<Mutex<Option<tokio::sync::oneshot::Sender<Context>>>>);
 
+impl Handler {
+    fn new() -> (Handler, RwFuture<Context>) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        (Handler(Arc::new(Mutex::new(Some(tx)))), RwFuture::new(async move { rx.await.expect("failed to store handler context") }))
+    }
+}
+
+#[async_trait]
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, ready: Ready) {
-        let (ref ctx_arc, ref cond) = *self.0;
-        let mut ctx_guard = ctx_arc.lock();
-        *ctx_guard = Some(ctx.clone());
-        cond.notify_all();
-        let guilds = ready.user.guilds(&ctx).expect("failed to get guilds");
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        if let Some(tx) = self.0.lock().await.take() {
+            if let Err(_) = tx.send(ctx.clone()) {
+                panic!("failed to send context")
+            }
+        }
+        let guilds = ready.user.guilds(&ctx).await.expect("failed to get guilds");
         if guilds.is_empty() {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
-            println!("[ ** ] {}", ready.user.invite_url(&ctx, Permissions::all()).expect("failed to generate invite URL"));
-            shut_down(&ctx);
+            println!("[ ** ] {}", ready.user.invite_url(&ctx, Permissions::all()).await.expect("failed to generate invite URL"));
+            shut_down(&ctx).await;
         }
     }
 
-    fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
+    async fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
         if guild_id != GEFOLGE { return; }
         user_list::remove(user).expect("failed to remove banned user from user list");
     }
 
-    fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
+    async fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
         if guild_id != GEFOLGE { return; }
-        user_list::add(guild_id.member(ctx, user).expect("failed to get unbanned guild member")).expect("failed to add unbanned user to user list");
+        user_list::add(guild_id.member(ctx, user).await.expect("failed to get unbanned guild member")).await.expect("failed to add unbanned user to user list");
     }
 
-    fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+    async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
         if guild.id != GEFOLGE { return; }
-        user_list::set(guild.members.values().cloned()).expect("failed to initialize user list");
-        let mut chan_map = <VoiceStates as Key>::Value::default();
+        user_list::set(guild.members.values().cloned()).await.expect("failed to initialize user list");
+        let VoiceStates(mut chan_map) = VoiceStates::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
-                let user = user_id.to_user(&ctx).expect("failed to get user info");
-                let (_, ref mut users) = chan_map.entry(channel_id)
-                    .or_insert_with(|| (channel_id.name(&ctx).expect("failed to get channel name"), Vec::default()));
+                let user = user_id.to_user(&ctx).await.expect("failed to get user info");
+                if chan_map.get(&channel_id).is_none() {
+                    chan_map.insert(channel_id, (channel_id.name(&ctx).await.expect("failed to get channel name"), Vec::default()));
+                }
+                let (_, ref mut users) = chan_map.get_mut(&channel_id).expect("just inserted");
                 match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
                     Ok(idx) => { users[idx] = user; }
                     Err(idx) => { users.insert(idx, user); }
                 }
             }
         }
-        let mut data = ctx.data.write();
-        data.insert::<VoiceStates>(chan_map);
+        let mut data = ctx.data.write().await;
+        data.insert::<VoiceStates>(VoiceStates(chan_map));
         let chan_map = data.get::<VoiceStates>().expect("missing voice states map");
-        voice::dump_info(chan_map).expect("failed to update BitBar plugin");
+        voice::dump_info(chan_map).await.expect("failed to update BitBar plugin");
     }
 
-    fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
+    async fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
         if guild_id != GEFOLGE { return; }
-        user_list::add(member).expect("failed to add new guild member to user list");
+        user_list::add(member).await.expect("failed to add new guild member to user list");
     }
 
-    fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
+    async fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
         if guild_id != GEFOLGE { return; }
         user_list::remove(user).expect("failed to remove removed guild member from user list");
     }
 
-    fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
+    async fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
         if member.guild_id != GEFOLGE { return; }
-        user_list::update(member).expect("failed to update guild member info in user list");
+        user_list::update(member).await.expect("failed to update guild member info in user list");
     }
 
-    fn guild_members_chunk(&self, _: Context, guild_id: GuildId, members: HashMap<UserId, Member>) {
-        if guild_id != GEFOLGE { return; }
-        for member in members.values() {
-            user_list::add(member.clone()).expect("failed to add chunk of guild members to user list");
+    async fn guild_members_chunk(&self, _: Context, chunk: GuildMembersChunkEvent) {
+        if chunk.guild_id != GEFOLGE { return; }
+        for member in chunk.members.values() {
+            user_list::add(member.clone()).await.expect("failed to add chunk of guild members to user list");
         }
     }
 
-    fn message(&self, mut ctx: Context, msg: Message) {
+    async fn message(&self, mut ctx: Context, msg: Message) { //TODO move to normal_message in the framework?
         if msg.author.bot { return; } // ignore bots to prevent message loops
-        if ctx.data.read().get::<Config>().expect("missing config").channels.werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
-            if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content) {
-                match action.and_then(|action| werewolf::handle_action(&mut ctx, action)) {
-                    Ok(()) => { msg.react(ctx, "👀").expect("reaction failed"); }
-                    Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).expect("failed to reply to game action"); }
+        if ctx.data.read().await.get::<Config>().expect("missing config").channels.werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
+            if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content).await {
+                match async move { action }.and_then(|action| werewolf::handle_action(&mut ctx, &msg, action)).await {
+                    Ok(()) => {} // reaction is posted in handle_action
+                    Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).await.expect("failed to reply to game action"); }
                     Err(e) => { panic!("failed to handle game action: {}", e); }
                 }
             }
         }
     }
 
-    fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+    async fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
         if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
-        let user = new.user_id.to_user(&ctx).expect("failed to get user info");
-        let mut data = ctx.data.write();
+        let user = new.user_id.to_user(&ctx).await.expect("failed to get user info");
+        let mut data = ctx.data.write().await;
         let ignored_channels = data.get::<Config>().expect("missing config").channels.ignored.clone();
-        let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
+        let voice_states = data.get_mut::<VoiceStates>().expect("missing voice states map");
+        let VoiceStates(ref mut chan_map) = voice_states;
         let was_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
         let mut empty_channels = Vec::default();
         for (channel_id, (_, users)) in chan_map.iter_mut() {
@@ -142,15 +152,17 @@ impl EventHandler for Handler {
         }
         let chan_id = new.channel_id;
         if let Some(channel_id) = chan_id {
-            let (_, ref mut users) = chan_map.entry(channel_id)
-                .or_insert_with(|| (channel_id.name(&ctx).expect("failed to get channel name"), Vec::default()));
+            if chan_map.get(&channel_id).is_none() {
+                chan_map.insert(channel_id, (channel_id.name(&ctx).await.expect("failed to get channel name"), Vec::default()));
+            }
+            let (_, ref mut users) = chan_map.get_mut(&channel_id).expect("just inserted");
             match users.binary_search_by_key(&(user.name.clone(), user.discriminator), |user| (user.name.clone(), user.discriminator)) {
                 Ok(idx) => { users[idx] = user.clone(); }
                 Err(idx) => { users.insert(idx, user.clone()); }
             }
         }
         let is_empty = chan_map.iter().all(|(channel_id, (_, members))| members.is_empty() || ignored_channels.contains(channel_id));
-        voice::dump_info(chan_map).expect("failed to update BitBar plugin");
+        voice::dump_info(voice_states).await.expect("failed to update voice state dump");
         if was_empty && !is_empty {
             let config = data.get::<Config>().expect("missing config");
             let mut msg_builder = MessageBuilder::default();
@@ -158,7 +170,7 @@ impl EventHandler for Handler {
             MessageBuilder::mention(&mut msg_builder, &user);
             msg_builder.push(" ist jetzt im voice channel ");
             msg_builder.mention(&chan_id.unwrap());
-            config.channels.voice.say(&ctx, msg_builder).expect("failed to send channel message"); //TODO don't prefix channel name with `#`
+            config.channels.voice.say(&ctx, msg_builder).await.expect("failed to send channel message"); //TODO don't prefix channel name with `#`
         }
     }
 }
@@ -172,74 +184,76 @@ async fn main() -> Result<(), Error> {
     } else {
         // read config
         let config = serde_json::from_reader::<_, Config>(File::open("/usr/local/share/fidera/config.json")?)?;
-        let handler = Handler::default();
-        let ctx_arc_ipc = handler.0.clone();
-        let ctx_arc_twitch = handler.0.clone();
-        let mut client = Client::new(&config.peter.bot_token, handler)?;
-        let owners = iter::once(client.cache_and_http.http.get_current_application_info()?.owner.id).collect();
+        let (handler, rx) = Handler::new();
+        let ctx_fut_ipc = rx.clone();
+        let ctx_fut_twitch = rx;
+        let owners = iter::once(Http::new_with_token(&config.peter.bot_token).get_current_application_info().await?.owner.id).collect();
+        let mut client = Client::builder(&config.peter.bot_token)
+            .event_handler(handler)
+            .add_intent(GatewayIntents::GUILDS)
+            .add_intent(GatewayIntents::GUILD_MEMBERS)
+            .add_intent(GatewayIntents::GUILD_BANS)
+            .add_intent(GatewayIntents::GUILD_VOICE_STATES)
+            .add_intent(GatewayIntents::GUILD_MESSAGES)
+            .framework(StandardFramework::new()
+                .configure(|c| c
+                    .with_whitespace(true) // allow ! command
+                    .case_insensitivity(true) // allow !Command
+                    .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
+                    .on_mention(Some(UserId(365936493539229699))) // allow @peter command
+                    .owners(owners)
+                    .prefix("!") // allow !command
+                )
+                .after(|_, _, command_name, result| Box::pin(async move {
+                    if let Err(why) = result {
+                        println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
+                    }
+                }))
+                .unrecognised_command(|ctx, msg, _| Box::pin(async move {
+                    if msg.author.bot { return; } // ignore bots to prevent message loops
+                    if msg.is_private() {
+                        if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {
+                            match async move { action }.and_then(|action| werewolf::handle_action(ctx, msg, action)).await {
+                                Ok(()) => {} // reaction is posted in handle_action
+                                Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).await.expect("failed to reply to game action"); }
+                                Err(e) => { panic!("failed to handle game action: {}", e); }
+                            }
+                        } else {
+                            // reply when command isn't recognized
+                            msg.reply(ctx, "ich habe diese Nachricht nicht verstanden").await.expect("failed to reply to unrecognized DM");
+                        }
+                    }
+                }))
+                //.help(help_commands::with_embeds) //TODO fix help?
+                .group(&commands::GROUP)
+            )
+            .await?;
         {
-            let mut data = client.data.write();
+            let mut data = client.data.write().await;
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
             data.insert::<Config>(config);
-            data.insert::<VoiceStates>(BTreeMap::default());
+            data.insert::<VoiceStates>(VoiceStates::default());
             data.insert::<werewolf::GameState>(HashMap::default());
         }
-        client.with_framework(StandardFramework::new()
-            .configure(|c| c
-                .with_whitespace(true) // allow ! command
-                .case_insensitivity(true) // allow !Command
-                .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
-                .on_mention(Some(UserId(365936493539229699))) // allow @peter command
-                .owners(owners)
-                .prefix("!") // allow !command
-            )
-            .after(|_, _, command_name, result| {
-                if let Err(why) = result {
-                    println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
-                }
-            })
-            .unrecognised_command(|ctx, msg, _| {
-                if msg.author.bot { return; } // ignore bots to prevent message loops
-                if msg.is_private() {
-                    if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content) {
-                        match action.and_then(|action| werewolf::handle_action(ctx, action)) {
-                            Ok(()) => { msg.react(ctx, "👀").expect("reaction failed"); }
-                            Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).expect("failed to reply to game action"); }
-                            Err(e) => { panic!("failed to handle game action: {}", e); }
-                        }
-                    } else {
-                        // reply when command isn't recognized
-                        msg.reply(ctx, "ich habe diese Nachricht nicht verstanden").expect("failed to reply to unrecognized DM");
-                    }
-                }
-            })
-            //.help(help_commands::with_embeds) //TODO fix help?
-            .group(&commands::GROUP)
-        );
         // listen for IPC commands
-        //TODO rewrite using tokio
-        {
-            thread::Builder::new().name("Peter IPC".into()).spawn(move || {
-                if let Err(e) = peter::ipc::listen(ctx_arc_ipc.clone(), &|ctx, thread_kind, e| peter::notify_thread_crash(ctx, thread_kind, e.into())) { //TODO remove `if` after changing from `()` to `!`
-                    eprintln!("{}", e);
-                    peter::notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e.into());
-                }
-            })?;
-        }
+        tokio::spawn(async move {
+            if let Err(e) = peter::ipc::listen(ctx_fut_ipc.clone(), &peter::notify_thread_crash).await { //TODO remove `if` after changing from `()` to `!`
+                eprintln!("{}", e);
+                peter::notify_thread_crash(ctx_fut_ipc.clone(), format!("IPC"), e).await;
+            }
+        });
         // check Twitch stream status
-        {
-            tokio::spawn(async move {
-                for i in 0.. {
-                    if let Err(e) = twitch::alerts(ctx_arc_twitch.clone()).await { //TODO remove `if` after changing from `()` to `!`
-                        eprintln!("{}", e);
-                        peter::notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
-                    }
-                    delay_for(Duration::from_secs(i)).await; // wait before attempting to reconnect
+        tokio::spawn(async move {
+            for i in 0.. {
+                if let Err(e) = twitch::alerts(ctx_fut_twitch.clone()).await { //TODO remove `if` after changing from `()` to `!`
+                    eprintln!("{}", e);
+                    peter::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e).await;
                 }
-            });
-        }
+                delay_for(Duration::from_secs(i)).await; // wait before attempting to reconnect
+            }
+        });
         // connect to Discord
-        client.start_autosharded()?;
+        client.start_autosharded().await?;
         delay_for(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
     }
     Ok(())

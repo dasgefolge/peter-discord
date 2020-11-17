@@ -1,19 +1,13 @@
 //! Utilities for parsing messages into commands and game actions
 
 use {
-    std::{
-        str::FromStr,
-        sync::Arc
-    },
+    std::str::FromStr,
     itertools::Itertools as _,
-    serenity::{
-        model::prelude::*,
-        prelude::*
-    }
+    serenity::model::prelude::*,
 };
 
 /// Returns a role given its mention or name, but only if it's the entire command.
-pub fn eat_role_full(cmd: &mut &str, guild: Option<Arc<RwLock<Guild>>>) -> Option<RoleId> {
+pub fn eat_role_full(cmd: &mut &str, guild: Option<Guild>) -> Option<RoleId> {
     let original_cmd = *cmd;
     if let Some(role_id) = eat_role_mention(cmd) {
         if cmd.is_empty() {
@@ -23,8 +17,7 @@ pub fn eat_role_full(cmd: &mut &str, guild: Option<Arc<RwLock<Guild>>>) -> Optio
             None
         }
     } else if let Some(guild) = guild {
-        guild.read()
-            .roles
+        guild.roles
             .iter()
             .filter_map(|(&role_id, role)| if role.name == *cmd { Some(role_id) } else { None })
             .exactly_one()
