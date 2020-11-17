@@ -75,6 +75,7 @@ impl EventHandler for Handler {
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+        println!("Connected to {}", guild.name);
         if guild.id != GEFOLGE { return; }
         user_list::set(guild.members.values().cloned()).await.expect("failed to initialize user list");
         let VoiceStates(mut chan_map) = VoiceStates::default();
