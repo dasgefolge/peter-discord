@@ -9,7 +9,7 @@ name = "peter_ipc"
 path = "src/lib.rs"
 
 [dependencies]
-serenity = "0.8"
+serenity = "0.9"
 
 [dependencies.peter]
 path = "../peter"

@@ -156,12 +156,6 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
-name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
@@ -264,17 +258,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4344512281c643ae7638bbabc3af17a11307803ec8f0fcad9fae512a8bf36467"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "command_attr"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c27d6155f93d880b6379d93ddc9b2417b3b69b715360c5f25525e4576338a381"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -697,7 +680,7 @@ dependencies = [
  "futures-util",
  "hyper",
  "log",
- "rustls 0.18.1",
+ "rustls",
  "tokio",
  "tokio-rustls",
  "webpki",
@@ -1121,7 +1104,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "serenity 0.9.1",
+ "serenity",
  "serenity-utils",
  "tokio",
  "twitch_helix",
@@ -1136,7 +1119,7 @@ dependencies = [
  "parking_lot",
  "peter",
  "serde_json",
- "serenity 0.9.1",
+ "serenity",
  "serenity-utils",
  "tokio",
 ]
@@ -1146,7 +1129,7 @@ name = "peter-ipc"
 version = "0.1.0"
 dependencies = [
  "peter",
- "serenity 0.8.7",
+ "serenity",
  "serenity-utils",
 ]
 
@@ -1156,7 +1139,7 @@ version = "0.1.0"
 dependencies = [
  "peter-ipc",
  "pyo3",
- "serenity 0.8.7",
+ "serenity",
 ]
 
 [[package]]
@@ -1396,7 +1379,7 @@ dependencies = [
  "mime_guess",
  "percent-encoding",
  "pin-project-lite",
- "rustls 0.18.1",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -1423,19 +1406,6 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "rustls"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0d4a31f5d68413404705d6982529b0e11a9aacd4839d1d6222ee3b8cb4015e1"
-dependencies = [
- "base64 0.11.0",
- "log",
- "ring",
- "sct",
- "webpki",
 ]
 
 [[package]]
@@ -1518,33 +1488,6 @@ dependencies = [
 
 [[package]]
 name = "serenity"
-version = "0.8.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e304a606c9601e538849c67b19af64e114e14ac633093e5e05188a9274f507c2"
-dependencies = [
- "base64 0.12.3",
- "bitflags",
- "chrono",
- "command_attr 0.2.0",
- "flate2",
- "log",
- "parking_lot",
- "reqwest",
- "rustls 0.17.0",
- "serde",
- "serde_json",
- "static_assertions",
- "threadpool",
- "tungstenite",
- "typemap",
- "url",
- "uwl",
- "webpki",
- "webpki-roots 0.19.0",
-]
-
-[[package]]
-name = "serenity"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fbd2938b8859261d418ba8325a795000e37e9cba1b19d4e978775c5e34dc997"
@@ -1555,7 +1498,7 @@ dependencies = [
  "bitflags",
  "bytes",
  "chrono",
- "command_attr 0.3.1",
+ "command_attr",
  "flate2",
  "futures",
  "reqwest",
@@ -1581,7 +1524,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "serenity 0.9.1",
+ "serenity",
  "serenity-utils-derive",
  "shlex",
  "tokio",
@@ -1682,15 +1625,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "threadpool"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
-dependencies = [
- "num_cpus",
-]
-
-[[package]]
 name = "time"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1758,7 +1692,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e12831b255bcfa39dc0436b01e19fea231a37db570686c06ee72c423479f889a"
 dependencies = [
  "futures-core",
- "rustls 0.18.1",
+ "rustls",
  "tokio",
  "webpki",
 ]
