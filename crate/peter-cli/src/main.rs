@@ -66,12 +66,12 @@ impl EventHandler for Handler {
 
     async fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
         if guild_id != GEFOLGE { return; }
-        user_list::remove(user).expect("failed to remove banned user from user list");
+        user_list::remove(user).await.expect("failed to remove banned user from user list");
     }
 
     async fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
         if guild_id != GEFOLGE { return; }
-        user_list::add(guild_id.member(ctx, user).await.expect("failed to get unbanned guild member")).await.expect("failed to add unbanned user to user list");
+        user_list::add(guild_id.member(ctx, user).await.expect("failed to get unbanned guild member"), None).await.expect("failed to add unbanned user to user list");
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
@@ -100,12 +100,12 @@ impl EventHandler for Handler {
 
     async fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
         if guild_id != GEFOLGE { return; }
-        user_list::add(member).await.expect("failed to add new guild member to user list");
+        user_list::add(member, None).await.expect("failed to add new guild member to user list");
     }
 
     async fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
         if guild_id != GEFOLGE { return; }
-        user_list::remove(user).expect("failed to remove removed guild member from user list");
+        user_list::remove(user).await.expect("failed to remove removed guild member from user list");
     }
 
     async fn guild_member_update(&self, _: Context, _: Option<Member>, member: Member) {
@@ -116,7 +116,7 @@ impl EventHandler for Handler {
     async fn guild_members_chunk(&self, _: Context, chunk: GuildMembersChunkEvent) {
         if chunk.guild_id != GEFOLGE { return; }
         for member in chunk.members.values() {
-            user_list::add(member.clone()).await.expect("failed to add chunk of guild members to user list");
+            user_list::add(member.clone(), None).await.expect("failed to add chunk of guild members to user list");
         }
     }
 

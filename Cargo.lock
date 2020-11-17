@@ -1109,6 +1109,7 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 name = "peter"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "derive_more",
  "futures",
  "itertools 0.9.0",
@@ -1572,10 +1573,11 @@ dependencies = [
 [[package]]
 name = "serenity-utils"
 version = "0.3.0"
-source = "git+https://github.com/fenhl/serenity-utils#ae39f6443caa2bd9ea92f8205cb607a6fbb88ef2"
+source = "git+https://github.com/fenhl/serenity-utils#7fda6905449c694ea2ed5e25571d3c3e80173055"
 dependencies = [
  "async-trait",
  "derive_more",
+ "futures",
  "parking_lot",
  "serde",
  "serde_json",
@@ -1589,7 +1591,7 @@ dependencies = [
 [[package]]
 name = "serenity-utils-derive"
 version = "0.3.0"
-source = "git+https://github.com/fenhl/serenity-utils#ae39f6443caa2bd9ea92f8205cb607a6fbb88ef2"
+source = "git+https://github.com/fenhl/serenity-utils#7fda6905449c694ea2ed5e25571d3c3e80173055"
 dependencies = [
  "proc-macro2",
  "quote",
