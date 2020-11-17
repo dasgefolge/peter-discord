@@ -53,8 +53,6 @@ pub enum Error {
     MissingConfig,
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
-    /// Returned by the user list handler if a user has no join date.
-    MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
     QwwStartGame(quantum_werewolf::game::state::StartGameError),
@@ -101,7 +99,6 @@ impl fmt::Display for Error {
             Error::Json(e) => e.fmt(f),
             Error::MissingConfig => write!(f, "config missing in Serenity context"),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
-            Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
             Error::QwwStartGame(e) => e.fmt(f),
             Error::RoleIdParse(e) => e.fmt(f),

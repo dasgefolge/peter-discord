@@ -24,7 +24,7 @@ const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";
 struct Profile {
     bot: bool,
     discriminator: u16,
-    joined: DateTime<Utc>,
+    joined: Option<DateTime<Utc>>,
     nick: Option<String>,
     roles: BTreeSet<RoleId>,
     snowflake: UserId,
@@ -37,7 +37,7 @@ pub async fn add(member: Member, join_date: Option<DateTime<Utc>>) -> Result<(),
     let buf = serde_json::to_vec_pretty(&Profile {
         bot: member.user.bot,
         discriminator: member.user.discriminator,
-        joined: member.joined_at.or(join_date).ok_or(Error::MissingJoinDate)?,
+        joined: member.joined_at.or(join_date),
         nick: member.nick,
         roles: member.roles.into_iter().collect(),
         snowflake: member.user.id,
@@ -53,7 +53,7 @@ pub async fn remove<U: Into<UserId>>(user: U) -> io::Result<Option<DateTime<Utc>
         Ok(mut f) => {
             let mut buf = Vec::default();
             f.read_to_end(&mut buf).await?;
-            Some(serde_json::from_slice::<Profile>(&buf)?.joined)
+            serde_json::from_slice::<Profile>(&buf)?.joined
         }
         Err(e) if e.kind() == io::ErrorKind::NotFound => None,
         Err(e) => return Err(e),
