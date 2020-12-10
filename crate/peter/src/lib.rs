@@ -11,6 +11,7 @@ use {
         io,
         process::Stdio,
         sync::Arc,
+        time::Duration,
     },
     derive_more::From,
     serde::Deserialize,
@@ -145,11 +146,11 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
-pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>) {
+pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>, auto_retry: Option<Duration>) {
     let ctx = ctx.read().await;
     let e = e.into();
     if let Ok(fenhl) = FENHL.to_user(&*ctx).await {
-        if fenhl.dm(&*ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e))).await.is_ok() {
+        if fenhl.dm(&*ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`), {}", thread_kind, e, e, if let Some(auto_retry) = auto_retry { format!("auto-retrying in `{:?}`", auto_retry) } else { format!("**not** auto-retrying") }))).await.is_ok() {
             return
         }
     }

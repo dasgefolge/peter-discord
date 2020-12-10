@@ -1,6 +1,7 @@
 use {
     std::{
         collections::BTreeMap,
+        convert::Infallible as Never,
         time::Duration,
     },
     futures::prelude::*,
@@ -46,7 +47,7 @@ async fn get_users(ctx_fut: &RwFuture<Context>) -> Result<BTreeMap<UserId, twitc
 }
 
 /// Notifies #twitch when a Gefolge member starts streaming.
-pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<(), Error> { //TODO change return type to Result<!>
+pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
     let (client, users) = client_and_users(&ctx_fut).await?;
     let first_status = status(&client, users).await?;
     let mut last_status = first_status.keys().cloned().collect::<Vec<_>>();

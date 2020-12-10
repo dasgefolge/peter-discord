@@ -31,6 +31,7 @@ git = "https://github.com/dasgefolge/quantum-werewolf"
 
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+branch = "main"
 
 [dependencies.tokio]
 version = "0.2" #TODO upgrade to 0.3 once supported by serenity

@@ -16,3 +16,4 @@ path = "../peter"
 
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+branch = "main"
