@@ -1,22 +1,15 @@
-#![deny(rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
+#![deny(rust_2018_idioms, unused, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
 
 use {
     std::{
-        collections::{
-            BTreeMap,
-            BTreeSet,
-        },
         env,
         fmt,
         io,
         process::Stdio,
-        sync::Arc,
         time::Duration,
     },
     derive_more::From,
-    serde::Deserialize,
     serenity::{
-        client::bridge::gateway::ShardManager,
         model::prelude::*,
         prelude::*,
     },
@@ -28,6 +21,7 @@ use {
 };
 
 pub mod commands;
+pub mod config;
 pub mod emoji;
 pub mod ipc;
 pub mod lang;
@@ -112,40 +106,6 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Config {
-    pub channels: ConfigChannels,
-    pub peter: ConfigPeter,
-    twitch: twitch::Config
-}
-
-impl TypeMapKey for Config {
-    type Value = Config;
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConfigChannels {
-    pub ignored: BTreeSet<ChannelId>,
-    pub voice: ChannelId,
-    pub werewolf: BTreeMap<GuildId, werewolf::Config>
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConfigPeter {
-    pub bot_token: String,
-    self_assignable_roles: BTreeSet<RoleId>
-}
-
-/// `typemap` key for the serenity shard manager.
-pub struct ShardManagerContainer;
-
-impl TypeMapKey for ShardManagerContainer {
-    type Value = Arc<Mutex<ShardManager>>;
-}
-
 pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>, auto_retry: Option<Duration>) {
     let ctx = ctx.read().await;
     let e = e.into();
@@ -170,12 +130,4 @@ pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e:
     if !exit_status.success() {
         panic!("mail exited with {} while notifying thread crash", exit_status)
     }
-}
-
-/// Utility function to shut down all shards.
-pub async fn shut_down(ctx: &Context) {
-    ctx.invisible().await; // hack to prevent the bot showing as online when it's not
-    let data = ctx.data.read().await;
-    let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock().await;
-    shard_manager.shutdown_all().await;
 }

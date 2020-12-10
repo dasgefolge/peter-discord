@@ -5,7 +5,10 @@ use {
         time::Duration,
     },
     futures::prelude::*,
-    serde::Deserialize,
+    serde::{
+        Deserialize,
+        Serialize,
+    },
     serenity::{
         model::prelude::*,
         prelude::*,
@@ -23,26 +26,26 @@ use {
 const CHANNEL: ChannelId = ChannelId(668518137334857728);
 const ROLE: RoleId = RoleId(668534306515320833);
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(rename = "clientID")]
     client_id: String,
     oauth_token: String,
-    users: BTreeMap<UserId, twitch_helix::model::UserId>
+    users: BTreeMap<UserId, twitch_helix::model::UserId>,
 }
 
 async fn client_and_users(ctx_fut: &RwFuture<Context>) -> Result<(Client, BTreeMap<UserId, twitch_helix::model::UserId>), Error> {
     let ctx = ctx_fut.read().await;
     let ctx_data = (*ctx).data.read().await;
-    let config = ctx_data.get::<crate::Config>().ok_or(Error::MissingConfig)?;
+    let config = ctx_data.get::<crate::config::Config>().ok_or(Error::MissingConfig)?;
     Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.twitch.client_id, &config.twitch.oauth_token)?, config.twitch.users.clone())) //TODO automatically renew OAuth token
 }
 
 async fn get_users(ctx_fut: &RwFuture<Context>) -> Result<BTreeMap<UserId, twitch_helix::model::UserId>, Error> {
     let ctx = ctx_fut.read().await;
     let ctx_data = (*ctx).data.read().await;
-    let config = ctx_data.get::<crate::Config>().ok_or(Error::MissingConfig)?;
+    let config = ctx_data.get::<crate::config::Config>().ok_or(Error::MissingConfig)?;
     Ok(config.twitch.users.clone())
 }
 

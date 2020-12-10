@@ -22,11 +22,11 @@ use {
         },
         prelude::*,
     },
+    serenity_utils::shut_down,
     crate::{
-        Config,
+        config::Config,
         emoji,
         parse,
-        shut_down,
         werewolf::{
             COMMAND_IN_COMMAND,
             COMMAND_OUT_COMMAND,
@@ -61,7 +61,7 @@ pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         return Ok(());
     }
     sender.add_role(&ctx, role).await?;
-    msg.reply(ctx, "Rolle zugewiesen").await?;
+    msg.react(&ctx, '✅').await?;
     Ok(())
 }
 
@@ -92,7 +92,7 @@ pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         return Ok(());
     }
     sender.remove_role(&ctx, role).await?;
-    msg.reply(ctx, "Rollenzuweisung entfernt").await?;
+    msg.react(&ctx, '✅').await?;
     Ok(())
 }
 

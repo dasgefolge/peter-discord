@@ -1,14 +1,7 @@
 use {
-    std::{
-        iter,
-        time::Duration
-    },
+    std::iter,
     serenity::prelude::*,
-    tokio::time::delay_for,
-    crate::{
-        GEFOLGE,
-        shut_down
-    }
+    crate::GEFOLGE,
 };
 
 serenity_utils::ipc! {
@@ -40,8 +33,7 @@ serenity_utils::ipc! {
 
     /// Shuts down the bot and cleanly exits the program.
     async fn quit(ctx: &Context) -> Result<(), String> {
-        shut_down(&ctx).await;
-        delay_for(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
+        serenity_utils::shut_down(&ctx).await;
         Ok(())
     }
 

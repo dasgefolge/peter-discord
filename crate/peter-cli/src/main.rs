@@ -1,10 +1,9 @@
-#![deny(rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
+#![deny(rust_2018_idioms, unused, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
 
 use {
     std::{
         collections::HashMap,
         env,
-        fs::File,
         iter,
         sync::Arc,
         time::{
@@ -23,15 +22,17 @@ use {
         prelude::*,
         utils::MessageBuilder,
     },
-    serenity_utils::RwFuture,
+    serenity_utils::{
+        RwFuture,
+        ShardManagerContainer,
+        shut_down,
+    },
     tokio::time::delay_for,
     peter::{
-        Config,
         Error,
         GEFOLGE,
-        ShardManagerContainer,
         commands,
-        shut_down,
+        config::Config,
         twitch,
         user_list,
         voice::{
@@ -195,7 +196,7 @@ async fn main() -> Result<(), Error> {
         println!("{}", peter::ipc::send(args)?);
     } else {
         // read config
-        let config = serde_json::from_reader::<_, Config>(File::open("/usr/local/share/fidera/config.json")?)?;
+        let config = Config::new().await?;
         let (handler, rx) = Handler::new();
         let ctx_fut_ipc = rx.clone();
         let ctx_fut_twitch = rx;
