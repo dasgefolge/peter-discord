@@ -40,3 +40,4 @@ features = ["fs", "process", "time"]
 [dependencies.twitch_helix]
 #version = "0.1" #TODO publish
 git = "https://github.com/fenhl/rust-twitch-helix"
+branch = "main"
