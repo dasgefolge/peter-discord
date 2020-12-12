@@ -36,7 +36,7 @@ dependencies = [
  "futures-util",
  "log",
  "pin-project 1.0.2",
- "tokio 0.2.24",
+ "tokio",
  "tokio-rustls",
  "tungstenite",
  "webpki-roots",
@@ -391,7 +391,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio 0.2.24",
+ "tokio",
  "tokio-util",
  "tracing",
  "tracing-futures",
@@ -463,7 +463,7 @@ dependencies = [
  "itoa",
  "pin-project 1.0.2",
  "socket2",
- "tokio 0.2.24",
+ "tokio",
  "tower-service",
  "tracing",
  "want",
@@ -480,7 +480,7 @@ dependencies = [
  "hyper",
  "log",
  "rustls",
- "tokio 0.2.24",
+ "tokio",
  "tokio-rustls",
  "webpki",
 ]
@@ -870,7 +870,7 @@ dependencies = [
  "serde_json",
  "serenity",
  "serenity-utils",
- "tokio 0.2.24",
+ "tokio",
  "twitch_helix",
 ]
 
@@ -885,7 +885,7 @@ dependencies = [
  "serde_json",
  "serenity",
  "serenity-utils",
- "tokio 0.2.24",
+ "tokio",
 ]
 
 [[package]]
@@ -1140,7 +1140,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "tokio 0.2.24",
+ "tokio",
  "tokio-rustls",
  "url",
  "wasm-bindgen",
@@ -1269,7 +1269,7 @@ dependencies = [
  "serde",
  "serde_json",
  "static_assertions",
- "tokio 0.2.24",
+ "tokio",
  "tracing",
  "tracing-futures",
  "typemap_rev",
@@ -1291,7 +1291,7 @@ dependencies = [
  "serenity",
  "serenity-utils-derive",
  "shlex",
- "tokio 0.2.24",
+ "tokio",
  "typemap",
 ]
 
@@ -1439,16 +1439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12a3eb39ee2c231be64487f1fcbe726c8f2514876a55480a5ab8559fc374252"
-dependencies = [
- "autocfg",
- "pin-project-lite 0.2.0",
-]
-
-[[package]]
 name = "tokio-macros"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1467,7 +1457,7 @@ checksum = "e12831b255bcfa39dc0436b01e19fea231a37db570686c06ee72c423479f889a"
 dependencies = [
  "futures-core",
  "rustls",
- "tokio 0.2.24",
+ "tokio",
  "webpki",
 ]
 
@@ -1482,7 +1472,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.1.11",
- "tokio 0.2.24",
+ "tokio",
 ]
 
 [[package]]
@@ -1578,7 +1568,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "tokio 0.3.5",
+ "tokio",
  "url",
 ]
 

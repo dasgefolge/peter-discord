@@ -41,3 +41,5 @@ features = ["fs", "process", "time"]
 #version = "0.1" #TODO publish
 git = "https://github.com/fenhl/rust-twitch-helix"
 branch = "main"
+default-features = false
+features = ["tokio02"]
