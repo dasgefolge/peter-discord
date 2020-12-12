@@ -1557,8 +1557,8 @@ dependencies = [
 
 [[package]]
 name = "twitch_helix"
-version = "0.3.0"
-source = "git+https://github.com/fenhl/rust-twitch-helix?branch=main#b0aee69d11ee38cf0b62ecdedbd1440855e5b86e"
+version = "0.3.1"
+source = "git+https://github.com/fenhl/rust-twitch-helix?branch=main#d9998d9eb71881ed8de70333ec9078219bac4c52"
 dependencies = [
  "chrono",
  "derive_more",

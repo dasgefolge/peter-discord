@@ -34,12 +34,11 @@ git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
 branch = "main"
 
 [dependencies.tokio]
-version = "0.2" #TODO upgrade to 0.3 once supported by serenity
+version = "0.2" #TODO upgrade to 0.3 once supported by serenity and reqwest
 features = ["fs", "process", "time"]
 
 [dependencies.twitch_helix]
-#version = "0.1" #TODO publish
-git = "https://github.com/fenhl/rust-twitch-helix"
+git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
 branch = "main"
 default-features = false
-features = ["tokio02"]
+features = ["tokio02"] #TODO upgrade to 0.3 once supported by serenity and reqwest
