@@ -2,6 +2,7 @@ use {
     std::{
         collections::BTreeMap,
         convert::Infallible as Never,
+        iter,
         time::Duration,
     },
     futures::prelude::*,
@@ -31,15 +32,19 @@ const ROLE: RoleId = RoleId(668534306515320833);
 pub struct Config {
     #[serde(rename = "clientID")]
     client_id: String,
-    oauth_token: String,
+    client_secret: String,
     users: BTreeMap<UserId, twitch_helix::model::UserId>,
 }
 
-async fn client_and_users(ctx_fut: &RwFuture<Context>) -> Result<(Client, BTreeMap<UserId, twitch_helix::model::UserId>), Error> {
+async fn client_and_users(ctx_fut: &RwFuture<Context>) -> Result<(Client<'static>, BTreeMap<UserId, twitch_helix::model::UserId>), Error> {
     let ctx = ctx_fut.read().await;
     let ctx_data = (*ctx).data.read().await;
     let config = ctx_data.get::<crate::config::Config>().ok_or(Error::MissingConfig)?;
-    Ok((Client::new(concat!("peter-discord/", env!("CARGO_PKG_VERSION")), &config.twitch.client_id, &config.twitch.oauth_token)?, config.twitch.users.clone())) //TODO automatically renew OAuth token
+    Ok((Client::new(
+        concat!("peter-discord/", env!("CARGO_PKG_VERSION")),
+        config.twitch.client_id.clone(),
+        twitch_helix::Credentials::from_client_secret(&config.twitch.client_secret, iter::empty::<String>()),
+    )?, config.twitch.users.clone()))
 }
 
 async fn get_users(ctx_fut: &RwFuture<Context>) -> Result<BTreeMap<UserId, twitch_helix::model::UserId>, Error> {
@@ -78,7 +83,7 @@ pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
 }
 
 /// Returns the set of Gefolge members who are currently live on Twitch.
-async fn status(client: &Client, users: BTreeMap<UserId, twitch_helix::model::UserId>) -> Result<BTreeMap<UserId, Stream>, Error> {
+async fn status(client: &Client<'_>, users: BTreeMap<UserId, twitch_helix::model::UserId>) -> Result<BTreeMap<UserId, Stream>, Error> {
     let (discord_ids, twitch_ids) = users.into_iter().unzip::<_, _, Vec<_>, _>();
     Ok(
         discord_ids.into_iter()
