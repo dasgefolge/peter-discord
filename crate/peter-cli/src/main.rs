@@ -133,7 +133,7 @@ impl EventHandler for Handler {
 
     async fn message(&self, mut ctx: Context, msg: Message) { //TODO move to normal_message in the framework?
         if msg.author.bot { return; } // ignore bots to prevent message loops
-        if ctx.data.read().await.get::<Config>().expect("missing config").channels.werewolf.iter().any(|(_, conf)| conf.channel == msg.channel_id) {
+        if ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id) {
             if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content).await {
                 match async move { action }.and_then(|action| werewolf::handle_action(&mut ctx, &msg, action)).await {
                     Ok(()) => {} // reaction is posted in handle_action
@@ -203,6 +203,8 @@ async fn main() -> Result<(), Error> {
         let owners = iter::once(Http::new_with_token(&config.peter.bot_token).get_current_application_info().await?.owner.id).collect();
         let mut client = Client::builder(&config.peter.bot_token)
             .event_handler(handler)
+            .add_intent(GatewayIntents::DIRECT_MESSAGES)
+            .add_intent(GatewayIntents::DIRECT_MESSAGE_REACTIONS)
             .add_intent(GatewayIntents::GUILDS)
             .add_intent(GatewayIntents::GUILD_MEMBERS)
             .add_intent(GatewayIntents::GUILD_BANS)

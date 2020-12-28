@@ -30,6 +30,7 @@ pub struct Config {
     pub channels: Channels,
     pub peter: Peter,
     pub(crate) twitch: twitch::Config,
+    pub werewolf: BTreeMap<GuildId, werewolf::Config>,
 }
 
 impl TypeMapKey for Config {
@@ -41,7 +42,6 @@ impl TypeMapKey for Config {
 pub struct Channels {
     pub ignored: BTreeSet<ChannelId>,
     pub voice: ChannelId,
-    pub werewolf: BTreeMap<GuildId, werewolf::Config>,
 }
 
 #[derive(Deserialize, Serialize)]

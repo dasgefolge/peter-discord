@@ -28,7 +28,9 @@ use {
         emoji,
         parse,
         werewolf::{
+            COMMAND_DAY_COMMAND,
             COMMAND_IN_COMMAND,
+            COMMAND_NIGHT_COMMAND,
             COMMAND_OUT_COMMAND,
         },
     },
@@ -149,14 +151,16 @@ pub async fn test(_: &Context, msg: &Message, args: Args) -> CommandResult {
 
 #[group]
 #[commands(
+    command_day,
     iam,
     iamn,
     command_in,
+    command_night,
     command_out,
     ping,
     poll,
     quit,
-    test
+    test,
 )]
 struct Main;
 
