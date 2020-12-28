@@ -284,6 +284,7 @@ async fn channel_check(ctx: &Context, msg: &Message, _: &mut Args, _: &CommandOp
 }
 
 #[command]
+#[aliases(day)]
 #[checks(channel_check)]
 pub async fn command_day(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -302,6 +303,7 @@ pub async fn command_day(ctx: &Context, msg: &Message, _: Args) -> CommandResult
 }
 
 #[command]
+#[aliases(in)]
 #[checks(channel_check)]
 pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -337,6 +339,7 @@ pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult 
 }
 
 #[command]
+#[aliases(night)]
 #[checks(channel_check)]
 pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -357,6 +360,7 @@ pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResu
 }
 
 #[command]
+#[aliases(out)]
 #[checks(channel_check)]
 pub async fn command_out(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
