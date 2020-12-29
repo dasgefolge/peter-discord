@@ -239,7 +239,7 @@ async fn main() -> Result<(), Error> {
                         }
                     }
                 }))
-                //.help(help_commands::with_embeds) //TODO fix help?
+                .help(&commands::HELP_COMMAND)
                 .group(&commands::GROUP)
             )
             .await?;
