@@ -5,7 +5,7 @@
 use {
     std::collections::HashSet,
     rand::{
-        Rng,
+        Rng as _,
         thread_rng,
     },
     serenity::{
@@ -117,7 +117,7 @@ pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let reply = {
         let mut rng = thread_rng();
-        let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5)));
+        let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)));
         if rng.gen_bool(0.01) { pingception } else { format!("pong") }
     };
     msg.reply(ctx, reply).await?;

@@ -31,7 +31,7 @@ use {
         state::*,
     },
     rand::{
-        Rng,
+        Rng as _,
         thread_rng,
     },
     serde::{
