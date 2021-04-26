@@ -5,7 +5,11 @@ use {
         iter,
         time::Duration,
     },
-    futures::prelude::*,
+    futures::{
+        pin_mut,
+        prelude::*,
+    },
+    itertools::Itertools as _,
     serde::{
         Deserialize,
         Serialize,
@@ -84,10 +88,12 @@ pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
 
 /// Returns the set of Gefolge members who are currently live on Twitch.
 async fn status(client: &Client<'_>, users: BTreeMap<UserId, twitch_helix::model::UserId>) -> Result<BTreeMap<UserId, Stream>, Error> {
-    let (discord_ids, twitch_ids) = users.into_iter().unzip::<_, _, Vec<_>, _>();
-    Ok(
-        discord_ids.into_iter()
-            .zip(Stream::list(client, None, Some(twitch_ids), None).try_collect::<Vec<_>>().await?)
-            .collect()
-    )
+    let mut map = BTreeMap::default();
+    let stream_infos = Stream::list(client, None, Some(users.values().cloned().collect()), None);
+    pin_mut!(stream_infos);
+    while let Some(stream_info) = stream_infos.try_next().await? {
+        let discord_id = *users.iter().filter(|&(_, twitch_id)| stream_info.user_id == *twitch_id).exactly_one().map_err(|_| Error::TwitchUserLookup)?.0;
+        map.insert(discord_id, stream_info);
+    }
+    Ok(map)
 }

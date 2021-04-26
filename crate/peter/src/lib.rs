@@ -54,6 +54,7 @@ pub enum Error {
     RoleIdParse(RoleIdParseError),
     Serenity(serenity::Error),
     Twitch(twitch_helix::Error),
+    TwitchUserLookup,
     UserIdParse(UserIdParseError),
 }
 
@@ -99,6 +100,7 @@ impl fmt::Display for Error {
             Error::RoleIdParse(e) => e.fmt(f),
             Error::Serenity(e) => e.fmt(f),
             Error::Twitch(e) => e.fmt(f),
+            Error::TwitchUserLookup => write!(f, "Twitch returned unexpected user info"),
             Error::UserIdParse(e) => e.fmt(f),
         }
     }
