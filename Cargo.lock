@@ -1461,7 +1461,7 @@ dependencies = [
 [[package]]
 name = "twitch_helix"
 version = "0.4.0"
-source = "git+https://github.com/fenhl/rust-twitch-helix?branch=main#89fd6b48a1af4488aa603a494a89c62889dc74ab"
+source = "git+https://github.com/fenhl/rust-twitch-helix?branch=main#300b59fe022564c7b56eef4b6dfee247177bf89f"
 dependencies = [
  "async-trait",
  "chrono",
