@@ -20,7 +20,7 @@ use {
         utils::MessageBuilder,
     },
     serenity_utils::RwFuture,
-    tokio::time::delay_for,
+    tokio::time::sleep,
     twitch_helix::{
         Client,
         model::Stream,
@@ -82,7 +82,7 @@ pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
             }
         }
         last_status = new_status.keys().cloned().collect();
-        delay_for(Duration::from_secs(60)).await;
+        sleep(Duration::from_secs(60)).await;
     }
 }
 

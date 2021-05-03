@@ -15,7 +15,7 @@ use {
     },
     tokio::{
         fs::File,
-        prelude::*,
+        io::AsyncWriteExt as _,
     },
 };
 

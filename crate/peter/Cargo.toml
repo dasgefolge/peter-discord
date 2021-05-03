@@ -4,22 +4,16 @@ version = "0.1.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2018"
 
-[lib]
-name = "peter"
-path = "src/lib.rs"
-
 [dependencies]
 chrono = "0.4"
 futures = "0.3"
 itertools = "0.10"
-lazy_static = "1"
 num-traits = "0.2"
-parking_lot = "0.11"
+once_cell = "1"
 rand = "0.8"
 regex = "1"
-serde = "1"
 serde_json = "1"
-serenity = "0.9"
+serenity = "0.10"
 
 [dependencies.derive_more]
 version = "0.99"
@@ -30,16 +24,18 @@ features = ["from"]
 git = "https://github.com/dasgefolge/quantum-werewolf"
 branch = "main"
 
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
 branch = "main"
 
 [dependencies.tokio]
-version = "0.2" #TODO upgrade to 0.3 once supported by serenity and reqwest
+version = "1"
 features = ["fs", "process", "time"]
 
 [dependencies.twitch_helix]
 git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
 branch = "main"
-default-features = false
-features = ["tokio02"] #TODO upgrade to 0.3 once supported by serenity and reqwest

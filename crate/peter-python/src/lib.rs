@@ -2,20 +2,17 @@
 
 use {
     pyo3::{
-        create_exception_type_object,
-        impl_exception_boilerplate,
+        create_exception,
         prelude::*,
-        wrap_pyfunction
+        wrap_pyfunction,
     },
     serenity::{
         model::prelude::*,
-        utils::MessageBuilder
-    }
+        utils::MessageBuilder,
+    },
 };
 
-struct CommandError;
-
-impl_exception_boilerplate!(CommandError);
+create_exception!(peter, CommandError, pyo3::exceptions::PyRuntimeError);
 
 fn user_to_id(user: &PyAny) -> PyResult<UserId> {
     if let Ok(snowflake) = user.getattr("snowflake") {
@@ -59,7 +56,6 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
 }
 
 #[pymodule] fn peter(_: Python<'_>, m: &PyModule) -> PyResult<()> {
-    create_exception_type_object!(m, CommandError, pyo3::exceptions::RuntimeError);
     m.add_wrapped(wrap_pyfunction!(escape))?;
     //TODO make sure that all IPC commands are listed below
     m.add_wrapped(wrap_pyfunction!(add_role))?;

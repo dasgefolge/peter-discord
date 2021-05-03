@@ -128,7 +128,7 @@ pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e:
         let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
         stdin.write_all(&input).await.expect("failed to write to mail stdin");
     }
-    let exit_status = child.await.expect("failed to wait for mail subprocess");
+    let exit_status = child.wait().await.expect("failed to wait for mail subprocess");
     if !exit_status.success() {
         panic!("mail exited with {} while notifying thread crash", exit_status)
     }

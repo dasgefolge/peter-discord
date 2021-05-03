@@ -13,7 +13,10 @@ use {
     serenity::model::prelude::*,
     tokio::{
         fs::File,
-        prelude::*,
+        io::{
+            AsyncReadExt as _,
+            AsyncWriteExt as _,
+        },
     },
     crate::Error,
 };

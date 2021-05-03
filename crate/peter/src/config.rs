@@ -11,10 +11,7 @@ use {
         model::prelude::*,
         prelude::*,
     },
-    tokio::{
-        fs::File,
-        prelude::*,
-    },
+    tokio::fs,
     crate::{
         Error,
         twitch,
@@ -53,9 +50,7 @@ pub struct Peter {
 
 impl Config {
     pub async fn new() -> Result<Config, Error> {
-        let mut file = File::open(PATH).await?;
-        let mut buf = String::default();
-        file.read_to_string(&mut buf).await?;
+        let buf = fs::read_to_string(PATH).await?;
         Ok(serde_json::from_str(&buf)?) //TODO use async-json
     }
 

@@ -41,7 +41,6 @@ use {
     serenity::{
         framework::standard::{
             Args,
-            CheckResult,
             CommandOptions,
             CommandResult,
             Reason,
@@ -54,7 +53,7 @@ use {
         prelude::*,
         utils::MessageBuilder,
     },
-    tokio::time::delay_for,
+    tokio::time::sleep,
     crate::{
         Error,
         lang::*,
@@ -267,19 +266,19 @@ impl TypeMapKey for GameState {
 
 #[check]
 #[name = "channel_check"]
-async fn channel_check(ctx: &Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> CheckResult {
+async fn channel_check(ctx: &Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> Result<(), Reason> {
     if let Some(guild_id) = msg.guild_id {
         if let Some(conf) = ctx.data.read().await.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild_id) {
             if msg.channel_id == conf.text_channel {
-                CheckResult::Success
+                Ok(())
             } else {
-                CheckResult::Failure(Reason::User("Dieser Befehl funktioniert nur im Werwölfe-Channel.".into()))
+                Err(Reason::User(format!("Dieser Befehl funktioniert nur im Werwölfe-Channel.")))
             }
         } else {
-            CheckResult::Failure(Reason::User("Werwölfe ist auf diesem Server noch nicht eingerichtet.".into()))
+            Err(Reason::User(format!("Werwölfe ist auf diesem Server noch nicht eingerichtet.")))
         }
     } else {
-        CheckResult::Failure(Reason::User("Dieser Befehl funktioniert nur in einem Channel.".into()))
+        Err(Reason::User(format!("Dieser Befehl funktioniert nur in einem Channel.")))
     }
 }
 
@@ -397,7 +396,7 @@ async fn continue_game(ctx: &Context, guild: GuildId) -> Result<(), Error> {
         }
     };
     loop {
-        delay_for(sleep_duration).await;
+        sleep(sleep_duration).await;
         let mut data = ctx.data.write().await;
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state").get_mut(&guild).expect("tried to continue game that hasn't started");
         if state_ref.timeout_cancelled(timeout_idx) { break }

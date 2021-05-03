@@ -27,7 +27,7 @@ use {
         ShardManagerContainer,
         shut_down,
     },
-    tokio::time::delay_for,
+    tokio::time::sleep,
     peter::{
         Error,
         GEFOLGE,
@@ -203,13 +203,15 @@ async fn main() -> Result<(), Error> {
         let owners = iter::once(Http::new_with_token(&config.peter.bot_token).get_current_application_info().await?.owner.id).collect();
         let mut client = Client::builder(&config.peter.bot_token)
             .event_handler(handler)
-            .add_intent(GatewayIntents::DIRECT_MESSAGES)
-            .add_intent(GatewayIntents::DIRECT_MESSAGE_REACTIONS)
-            .add_intent(GatewayIntents::GUILDS)
-            .add_intent(GatewayIntents::GUILD_MEMBERS)
-            .add_intent(GatewayIntents::GUILD_BANS)
-            .add_intent(GatewayIntents::GUILD_VOICE_STATES)
-            .add_intent(GatewayIntents::GUILD_MESSAGES)
+            .intents(
+                GatewayIntents::DIRECT_MESSAGES
+                | GatewayIntents::DIRECT_MESSAGE_REACTIONS
+                | GatewayIntents::GUILDS
+                | GatewayIntents::GUILD_MEMBERS
+                | GatewayIntents::GUILD_BANS
+                | GatewayIntents::GUILD_VOICE_STATES
+                | GatewayIntents::GUILD_MESSAGES
+            )
             .framework(StandardFramework::new()
                 .configure(|c| c
                     .with_whitespace(true) // allow ! command
@@ -276,13 +278,13 @@ async fn main() -> Result<(), Error> {
                 }
                 eprintln!("{}", e);
                 peter::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, Some(wait_time)).await;
-                delay_for(wait_time).await; // wait before attempting to reconnect
+                sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }
         });
         // connect to Discord
         client.start_autosharded().await?;
-        delay_for(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
+        sleep(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
     }
     Ok(())
 }
