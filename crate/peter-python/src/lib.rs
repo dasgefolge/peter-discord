@@ -32,27 +32,27 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
 
 #[pyfunction] fn add_role(user_id: &PyAny, role_id: u64) -> PyResult<()> {
     peter_ipc::add_role(user_to_id(user_id)?, RoleId(role_id))
-        .map_err(|e| CommandError::py_err(e.to_string()))
+        .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pyfunction] fn channel_msg(channel_id: u64, msg: String) -> PyResult<()> {
     peter_ipc::channel_msg(ChannelId(channel_id), msg)
-        .map_err(|e| CommandError::py_err(e.to_string()))
+        .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pyfunction] fn msg(user_id: &PyAny, msg: String) -> PyResult<()> {
     peter_ipc::msg(user_to_id(user_id)?, msg)
-        .map_err(|e| CommandError::py_err(e.to_string()))
+        .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pyfunction] fn quit() -> PyResult<()> {
     peter_ipc::quit()
-        .map_err(|e| CommandError::py_err(e.to_string()))
+        .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pyfunction] fn set_display_name(user_id: &PyAny, new_display_name: String) -> PyResult<()> {
     peter_ipc::set_display_name(user_to_id(user_id)?, new_display_name)
-        .map_err(|e| CommandError::py_err(e.to_string()))
+        .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pymodule] fn peter(_: Python<'_>, m: &PyModule) -> PyResult<()> {
