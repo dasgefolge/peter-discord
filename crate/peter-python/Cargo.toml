@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 path = "../peter-ipc"
 
 [dependencies.pyo3]
-version = "0.13"
+version = "0.14"
 features = ["extension-module"]
 
 [dependencies.serenity]
