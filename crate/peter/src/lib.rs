@@ -5,19 +5,9 @@ use {
         env,
         fmt,
         io,
-        process::Stdio,
-        time::Duration,
     },
     derive_more::From,
-    serenity::{
-        model::prelude::*,
-        prelude::*,
-    },
-    serenity_utils::RwFuture,
-    tokio::{
-        io::AsyncWriteExt as _,
-        process::Command,
-    },
+    serenity::model::prelude::*
 };
 
 pub mod commands;
@@ -31,7 +21,7 @@ pub mod user_list;
 pub mod voice;
 pub mod werewolf;
 
-const FENHL: UserId = UserId(86841168427495424);
+pub const FENHL: UserId = UserId(86841168427495424);
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 
 #[derive(Debug, From)]
@@ -107,29 +97,3 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
-
-pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>, auto_retry: Option<Duration>) {
-    let ctx = ctx.read().await;
-    let e = e.into();
-    if let Ok(fenhl) = FENHL.to_user(&*ctx).await {
-        if fenhl.dm(&*ctx, |m| m.content(format!("{} thread crashed: {} (`{:?}`), {}", thread_kind, e, e, if let Some(auto_retry) = auto_retry { format!("auto-retrying in `{:?}`", auto_retry) } else { format!("**not** auto-retrying") }))).await.is_ok() {
-            return
-        }
-    }
-    let mut child = Command::new("mail")
-        .arg("-s")
-        .arg(format!("Peter {} thread crashed", thread_kind))
-        .arg("fenhl@fenhl.net")
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("failed to spawn mail");
-    {
-        let input = format!("Peter {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).into_bytes();
-        let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
-        stdin.write_all(&input).await.expect("failed to write to mail stdin");
-    }
-    let exit_status = child.wait().await.expect("failed to wait for mail subprocess");
-    if !exit_status.success() {
-        panic!("mail exited with {} while notifying thread crash", exit_status)
-    }
-}

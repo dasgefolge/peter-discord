@@ -3,8 +3,6 @@
 use {
     std::{
         collections::HashMap,
-        env,
-        iter,
         sync::Arc,
         time::{
             Duration,
@@ -12,24 +10,22 @@ use {
         },
     },
     async_trait::async_trait,
-    chrono::prelude::*,
     serenity::{
         client::bridge::gateway::GatewayIntents,
-        framework::standard::StandardFramework,
         futures::TryFutureExt as _,
-        http::Http,
         model::prelude::*,
         prelude::*,
         utils::MessageBuilder,
     },
     serenity_utils::{
         RwFuture,
-        ShardManagerContainer,
+        builder::ErrorNotifier,
         shut_down,
     },
     tokio::time::sleep,
     peter::{
         Error,
+        FENHL,
         GEFOLGE,
         commands,
         config::Config,
@@ -131,19 +127,6 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, mut ctx: Context, msg: Message) { //TODO move to normal_message in the framework?
-        if msg.author.bot { return; } // ignore bots to prevent message loops
-        if ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id) {
-            if let Some(action) = werewolf::parse_action(&mut ctx, msg.author.id, &msg.content).await {
-                match async move { action }.and_then(|action| werewolf::handle_action(&mut ctx, &msg, action)).await {
-                    Ok(()) => {} // reaction is posted in handle_action
-                    Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).await.expect("failed to reply to game action"); }
-                    Err(e) => { panic!("failed to handle game action: {}", e); }
-                }
-            }
-        }
-    }
-
     async fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
         println!("Voice states in guild {:?} updated", guild_id);
         if guild_id.map_or(true, |gid| gid != GEFOLGE) { return; } //TODO make sure this works, i.e. serenity never passes None for GEFOLGE
@@ -188,87 +171,44 @@ impl EventHandler for Handler {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    let mut args = env::args().peekable();
-    let _ = args.next(); // ignore executable name
-    if args.peek().is_some() {
-        println!("{}", peter::ipc::send(args)?);
-    } else {
-        // read config
-        let config = Config::new().await?;
-        let (handler, rx) = Handler::new();
-        let ctx_fut_ipc = rx.clone();
-        let ctx_fut_twitch = rx;
-        let owners = iter::once(Http::new_with_token(&config.peter.bot_token).get_current_application_info().await?.owner.id).collect();
-        let mut client = Client::builder(&config.peter.bot_token)
-            .event_handler(handler)
-            .intents(
-                GatewayIntents::DIRECT_MESSAGES
-                | GatewayIntents::DIRECT_MESSAGE_REACTIONS
-                | GatewayIntents::GUILDS
-                | GatewayIntents::GUILD_PRESENCES // required for guild member data in guild_create
-                | GatewayIntents::GUILD_MEMBERS
-                | GatewayIntents::GUILD_BANS
-                | GatewayIntents::GUILD_VOICE_STATES
-                | GatewayIntents::GUILD_MESSAGES
-            )
-            .framework(StandardFramework::new()
-                .configure(|c| c
-                    .with_whitespace(true) // allow ! command
-                    .case_insensitivity(true) // allow !Command
-                    .no_dm_prefix(true) // allow /msg @peter command (also allows game actions in DMs and “did not understand DM” error messages to work)
-                    .on_mention(Some(UserId(365936493539229699))) // allow @peter command
-                    .owners(owners)
-                    .prefix("!") // allow !command
-                )
-                .after(|_, _, command_name, result| Box::pin(async move {
-                    if let Err(why) = result {
-                        println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
+#[serenity_utils::main(ipc = "peter::ipc")]
+async fn main() -> Result<serenity_utils::Builder, Error> {
+    let config = Config::new().await?;
+    Ok(serenity_utils::builder(config.peter.bot_token.clone()).await?
+        .error_notifier(ErrorNotifier::User(FENHL))
+        .raw_event_handler_with_ctx(
+            Handler::new,
+            GatewayIntents::GUILD_BANS
+            | GatewayIntents::GUILDS
+            | GatewayIntents::GUILD_PRESENCES // required for guild member data in guild_create
+            | GatewayIntents::GUILD_MEMBERS
+            | GatewayIntents::GUILD_VOICE_STATES,
+        )
+        .commands(Some("!"), &commands::GROUP).await?
+        .plain_message(|ctx, msg| Box::pin(async move {
+            (msg.is_private() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
+                if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {
+                    match async move { action }.and_then(|action| werewolf::handle_action(ctx, msg, action)).await {
+                        Ok(()) => {} // reaction is posted in handle_action
+                        Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).await.expect("failed to reply to game action"); }
+                        Err(e) => { panic!("failed to handle game action: {}", e); }
                     }
-                }))
-                .unrecognised_command(|ctx, msg, _| Box::pin(async move {
-                    if msg.author.bot { return; } // ignore bots to prevent message loops
-                    if msg.is_private() {
-                        if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {
-                            match async move { action }.and_then(|action| werewolf::handle_action(ctx, msg, action)).await {
-                                Ok(()) => {} // reaction is posted in handle_action
-                                Err(Error::GameAction(err_msg)) => { msg.reply(ctx, &err_msg).await.expect("failed to reply to game action"); }
-                                Err(e) => { panic!("failed to handle game action: {}", e); }
-                            }
-                        } else {
-                            // reply when command isn't recognized
-                            msg.reply(ctx, "ich habe diese Nachricht nicht verstanden").await.expect("failed to reply to unrecognized DM");
-                        }
-                    }
-                }))
-                .help(&commands::HELP_COMMAND)
-                .group(&commands::GROUP)
-            )
-            .await?;
-        {
-            let mut data = client.data.write().await;
-            data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-            data.insert::<Config>(config);
-            data.insert::<VoiceStates>(VoiceStates::default());
-            data.insert::<werewolf::GameState>(HashMap::default());
-        }
-        // listen for IPC commands
-        tokio::spawn(async move {
-            match peter::ipc::listen(ctx_fut_ipc.clone(), &|ctx, thread_kind, e| peter::notify_thread_crash(ctx, thread_kind, e, None)).await {
-                Ok(never) => match never {},
-                Err(e) => {
-                    eprintln!("{}", e);
-                    peter::notify_thread_crash(ctx_fut_ipc.clone(), format!("IPC"), e, None).await;
+                    true
+                } else {
+                    false
                 }
-            }
-        });
-        // check Twitch stream status
-        tokio::spawn(async move {
+    }
+        }))
+        .unrecognized_message("ich habe diese Nachricht nicht verstanden")
+        .data::<Config>(config)
+        .data::<VoiceStates>(VoiceStates::default())
+        .data::<werewolf::GameState>(HashMap::default())
+        .task(|ctx_fut, notify_thread_crash| async move {
+            // check Twitch stream status
             let mut last_crash = Instant::now();
             let mut wait_time = Duration::from_secs(1);
             loop {
-                let e = match twitch::alerts(ctx_fut_twitch.clone()).await {
+                let e = match twitch::alerts(ctx_fut.clone()).await {
                     Ok(never) => match never {},
                     Err(e) => e,
                 };
@@ -278,14 +218,12 @@ async fn main() -> Result<(), Error> {
                     wait_time *= 2; // exponential backoff
                 }
                 eprintln!("{}", e);
-                peter::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, Some(wait_time)).await;
+                if wait_time >= Duration::from_secs(2) { // only notify on multiple consecutive errors
+                    notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await;
+                }
                 sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }
-        });
-        // connect to Discord
-        client.start_autosharded().await?;
-        sleep(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
-    }
-    Ok(())
+        })
+    )
 }

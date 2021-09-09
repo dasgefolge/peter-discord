@@ -3,7 +3,6 @@
 #![allow(missing_docs)]
 
 use {
-    std::collections::HashSet,
     rand::{
         Rng as _,
         thread_rng,
@@ -11,14 +10,10 @@ use {
     serenity::{
         framework::standard::{
             Args,
-            CommandGroup,
             CommandResult,
-            HelpOptions,
-            help_commands,
             macros::{
                 command,
                 group,
-                help,
             },
         },
         model::{
@@ -40,16 +35,7 @@ use {
         },
     },
 };
-pub use self::{
-    HELP as HELP_COMMAND,
-    MAIN_GROUP as GROUP,
-};
-
-#[help]
-async fn help(ctx: &Context, msg: &Message, args: Args, help_options: &'static HelpOptions, groups: &[&'static CommandGroup], owners: HashSet<UserId>) -> CommandResult {
-    let _ = help_commands::with_embeds(ctx, msg, args, help_options, groups, owners).await;
-    Ok(())
-}
+pub use self::MAIN_GROUP as GROUP;
 
 #[command]
 pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {

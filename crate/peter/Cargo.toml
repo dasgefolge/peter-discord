@@ -29,8 +29,9 @@ version = "1"
 features = ["derive"]
 
 [dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
-branch = "main"
+#git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+#branch = "main"
+path = "C:\\Users\\fenhl\\git\\github.com\\fenhl\\serenity-utils\\stage\\crate\\serenity-utils" #TODO push changes
 
 [dependencies.tokio]
 version = "1"
