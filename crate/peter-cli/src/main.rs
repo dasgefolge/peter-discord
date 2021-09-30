@@ -184,7 +184,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             | GatewayIntents::GUILD_MEMBERS
             | GatewayIntents::GUILD_VOICE_STATES,
         )
-        .commands(Some("!"), &commands::GROUP).await?
+        .commands(Some("!"), &commands::GROUP)
         .plain_message(|ctx, msg| Box::pin(async move {
             (msg.is_private() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
                 if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {

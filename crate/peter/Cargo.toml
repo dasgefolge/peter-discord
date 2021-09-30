@@ -20,6 +20,9 @@ version = "0.99"
 default-features = false
 features = ["from"]
 
+[dependencies.discord-message-parser]
+git = "https://github.com/fenhl/discord-message-parser"
+
 [dependencies.quantum-werewolf]
 git = "https://github.com/dasgefolge/quantum-werewolf"
 branch = "main"
