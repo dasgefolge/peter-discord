@@ -18,7 +18,6 @@ pub mod lang;
 pub mod parse;
 pub mod twitch;
 pub mod user_list;
-pub mod voice;
 pub mod werewolf;
 
 pub const FENHL: UserId = UserId(86841168427495424);

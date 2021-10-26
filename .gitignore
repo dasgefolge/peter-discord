@@ -1,3 +1,5 @@
 /target/
 **/*.rs.bk
-/assets/env.txt
+
+# don't publish database password
+/.cargo/config.toml

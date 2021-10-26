@@ -53,12 +53,12 @@ use {
         prelude::*,
         utils::MessageBuilder,
     },
+    serenity_utils::handler::voice_state::VoiceStates,
     tokio::time::sleep,
     crate::{
         Error,
         lang::*,
         parse,
-        voice::VoiceStates,
     },
 };
 

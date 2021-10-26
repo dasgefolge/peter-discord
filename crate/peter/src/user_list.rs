@@ -3,22 +3,31 @@
 use {
     std::{
         collections::BTreeSet,
+        future::Future,
         io,
+        path::Path,
+        pin::Pin,
     },
     chrono::prelude::*,
     serde::{
         Deserialize,
         Serialize,
     },
-    serenity::model::prelude::*,
-    tokio::{
-        fs::File,
-        io::{
-            AsyncReadExt as _,
-            AsyncWriteExt as _,
-        },
+    serenity::{
+        model::prelude::*,
+        prelude::*,
     },
-    crate::Error,
+    tokio::{
+        fs::{
+            self,
+            File,
+        },
+        io::AsyncReadExt as _,
+    },
+    crate::{
+        Error,
+        GEFOLGE,
+    },
 };
 
 const PROFILES_DIR: &'static str = "/usr/local/share/fidera/profiles";
@@ -35,18 +44,17 @@ struct Profile {
 }
 
 /// Add a Discord account to the list of Gefolge guild members.
-pub async fn add(member: Member, join_date: Option<DateTime<Utc>>) -> Result<(), Error> {
-    let mut f = File::create(format!("{}/{}.json", PROFILES_DIR, member.user.id)).await?;
+pub async fn add(member: &Member, join_date: Option<DateTime<Utc>>) -> Result<(), Error> {
     let buf = serde_json::to_vec_pretty(&Profile {
         bot: member.user.bot,
         discriminator: member.user.discriminator,
         joined: member.joined_at.or(join_date),
-        nick: member.nick,
-        roles: member.roles.into_iter().collect(),
+        nick: member.nick.clone(),
+        roles: member.roles.iter().copied().collect(),
         snowflake: member.user.id,
-        username: member.user.name,
+        username: member.user.name.clone(),
     })?;
-    f.write_all(&buf).await?;
+    fs::write(Path::new(PROFILES_DIR).join(format!("{}.json", member.user.id)), &buf).await?;
     Ok(())
 }
 
@@ -70,23 +78,40 @@ pub async fn remove<U: Into<UserId>>(user: U) -> io::Result<Option<DateTime<Utc>
     Ok(join_date)
 }
 
-/// (Re)initialize the list of Gefolge guild members.
-pub async fn set<I: IntoIterator<Item=Member>>(members: I) -> Result<(), Error> {
-    /*
-    let mut read_dir = fs::read_dir(PROFILES_DIR).await?;
-    while let Some(entry) = read_dir.try_next().await? {
-        fs::remove_file(entry?.path()).await?;
-    }
-    */
-    for member in members.into_iter() { //TODO parallel?
-        add(member, None).await?;
-    }
-    Ok(())
-}
+pub enum Exporter {}
 
-/// Update the data for a guild member. Equivalent to `remove` followed by `add`.
-pub async fn update(member: Member) -> Result<(), Error> {
-    let join_date = remove(&member).await?;
-    add(member, join_date).await?;
-    Ok(())
+impl serenity_utils::handler::user_list::ExporterMethods for Exporter {
+    fn upsert<'a>(_: &'a Context, member: &'a Member) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
+        Box::pin(async move {
+            if member.guild_id != GEFOLGE { return Ok(()) }
+            let join_date = remove(member).await?;
+            add(member, join_date).await?;
+            Ok(())
+        })
+    }
+
+    fn replace_all<'a>(_: &'a Context, members: Vec<&'a Member>) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
+        Box::pin(async move {
+            /*
+            let mut read_dir = fs::read_dir(PROFILES_DIR).await?;
+            while let Some(entry) = read_dir.try_next().await? {
+                fs::remove_file(entry?.path()).await?;
+            }
+            */
+            for member in members { //TODO parallel?
+                if member.guild_id == GEFOLGE {
+                    add(member, None).await?;
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn remove<'a>(_: &'a Context, UserId(user_id): UserId, guild_id: GuildId) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
+        Box::pin(async move {
+            if guild_id != GEFOLGE { return Ok(()) }
+            remove(user_id).await?;
+            Ok(())
+        })
+    }
 }

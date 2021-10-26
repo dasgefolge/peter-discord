@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 async-trait = "0.1"
 chrono = "0.4"
+itertools = "0.10"
 serde_json = "1"
 serenity = "0.10"
 

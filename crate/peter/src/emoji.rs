@@ -81,6 +81,10 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 /// Given a number in `0..26`, returns the regional indicator emoji corresponding to the letter in this position of the alphabet.
+///
+/// # Panics
+///
+/// Panics if the number is greater than 25.
 pub fn nth_letter(n: u8) -> ReactionType {
     if n >= 26 { panic!("letter not in range") }
     ReactionType::Unicode(::std::char::from_u32('🇦' as u32 + n as u32).expect("failed to create regional indicator").to_string())
