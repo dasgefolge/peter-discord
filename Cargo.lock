@@ -998,7 +998,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serenity",
- "serenity-utils 0.5.0 (git+https://github.com/fenhl/serenity-utils?branch=main)",
+ "serenity-utils",
  "tokio",
  "twitch_helix",
 ]
@@ -1013,7 +1013,7 @@ dependencies = [
  "peter",
  "serde_json",
  "serenity",
- "serenity-utils 0.5.0 (git+https://github.com/fenhl/serenity-utils?branch=main)",
+ "serenity-utils",
  "tokio",
 ]
 
@@ -1023,7 +1023,7 @@ version = "0.1.0"
 dependencies = [
  "peter",
  "serenity",
- "serenity-utils 0.5.0",
+ "serenity-utils",
 ]
 
 [[package]]
@@ -1451,39 +1451,16 @@ dependencies = [
 [[package]]
 name = "serenity-utils"
 version = "0.5.0"
-dependencies = [
- "derive_more",
- "futures",
- "parking_lot",
- "serenity",
- "serenity-utils-derive 0.5.0",
- "shlex",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "serenity-utils"
-version = "0.5.0"
 source = "git+https://github.com/fenhl/serenity-utils?branch=main#5b03d2d2e4e1c2b14433195408c114d22661e7ab"
 dependencies = [
  "derive_more",
  "futures",
  "parking_lot",
  "serenity",
- "serenity-utils-derive 0.5.0 (git+https://github.com/fenhl/serenity-utils?branch=main)",
+ "serenity-utils-derive",
  "shlex",
  "tokio",
  "tokio-stream",
-]
-
-[[package]]
-name = "serenity-utils-derive"
-version = "0.5.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
