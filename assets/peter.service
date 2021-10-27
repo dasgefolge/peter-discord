@@ -10,7 +10,6 @@ ExecStop=/home/fenhl/.cargo/bin/cargo run --release -- quit
 User=fenhl
 Group=fenhl
 WorkingDirectory=/opt/git/github.com/dasgefolge/peter-discord/master
-EnvironmentFile=/opt/git/github.com/dasgefolge/peter-discord/master/assets/env.txt
 
 [Install]
 WantedBy=multi-user.target
