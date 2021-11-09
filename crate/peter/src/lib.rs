@@ -20,8 +20,12 @@ pub mod twitch;
 pub mod user_list;
 pub mod werewolf;
 
-pub const FENHL: UserId = UserId(86841168427495424);
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
+
+pub const MENSCH: RoleId = RoleId(386753710434287626);
+pub const GUEST: RoleId = RoleId(784929665478557737);
+
+pub const FENHL: UserId = UserId(86841168427495424);
 
 #[derive(Debug, From)]
 pub enum Error {
