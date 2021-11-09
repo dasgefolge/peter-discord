@@ -6,7 +6,6 @@ use {
             BTreeSet,
             HashMap,
         },
-        fmt,
         future::Future,
         pin::Pin,
         time::{
@@ -24,11 +23,7 @@ use {
     },
     serenity_utils::{
         builder::ErrorNotifier,
-        handler::{
-            HandlerMethods as _,
-            voice_state::VoiceStates,
-        },
-        slash::*,
+        handler::voice_state::VoiceStates,
     },
     tokio::{
         fs,
@@ -38,8 +33,6 @@ use {
         Error,
         FENHL,
         GEFOLGE,
-        GUEST,
-        MENSCH,
         commands,
         config::Config,
         twitch,
@@ -103,68 +96,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .error_notifier(ErrorNotifier::User(FENHL))
         .event_handler(serenity_utils::handler::user_list_exporter::<peter::user_list::Exporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
-        .slash_command(GEFOLGE, "team", CommandPermissions::from(MENSCH) | GUEST,
-            |cmd| cmd
-                .description("In ein Team wechseln, z.B. für ein Quiz")
-                .create_option(|opt| {
-                    opt.name("team").description("Die Teamnummer").kind(ApplicationCommandOptionType::Integer).required(true);
-                    for i in 1..=6 { opt.add_int_choice(i.to_string(), i); }
-                    opt
-                }),
-            |ctx, interaction| Box::pin(async move {
-                const TEAMS: [RoleId; 6] = [
-                    RoleId(828431321586991104),
-                    RoleId(828431500747735100),
-                    RoleId(828431624759935016),
-                    RoleId(828431736194072606),
-                    RoleId(828431741332750407),
-                    RoleId(828431913738960956),
-                ];
-
-                #[derive(Debug)]
-                enum TeamCommandError {
-                    ParseOptions,
-                    TeamNumberRange,
-                }
-
-                impl fmt::Display for TeamCommandError {
-                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        match self {
-                            Self::ParseOptions => write!(f, "unexpected options"),
-                            Self::TeamNumberRange => write!(f, "team number was not in 1..=6"),
-                        }
-                    }
-                }
-
-                impl std::error::Error for TeamCommandError {}
-
-                if let Some(mut member) = interaction.member {
-                    let team_idx = if let [ApplicationCommandInteractionDataOption { name, resolved: Some(ApplicationCommandInteractionDataOptionValue::Integer(team_number)), .. }] = &interaction.data.options[..] { //TODO add structopt-style combined slash command argument definition/parsing to serenity-utils to make this less verbose?
-                        if name == "team" {
-                            if (1..=6).contains(team_number) {
-                                (team_number - 1) as usize
-                            } else {
-                                return Err(Box::new(TeamCommandError::TeamNumberRange) as Box<dyn std::error::Error + Send + Sync>)
-                            }
-                        } else {
-                            return Err(Box::new(TeamCommandError::ParseOptions))
-                        }
-                    } else {
-                        return Err(Box::new(TeamCommandError::ParseOptions))
-                    };
-                    member.remove_roles(&ctx, &TEAMS.iter().enumerate().filter_map(|(idx, &role_id)| (idx != team_idx).then(|| role_id)).collect_vec()).await?;
-                    member.add_role(ctx, TEAMS[team_idx]).await?;
-                } else {
-                    interaction.create_interaction_response(ctx, |resp| resp
-                        .interaction_response_data(|data| data
-                            .content("Dieses command funktioniert nur im Gefolge.")
-                            .flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL)
-                        )
-                    ).await?;
-                }
-                Ok(())
-            }),
-        )
         .message_commands(Some("!"), &commands::GROUP)
         .plain_message(|ctx, msg| Box::pin(async move {
             (msg.is_private() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
