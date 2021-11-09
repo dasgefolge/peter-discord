@@ -1465,7 +1465,7 @@ dependencies = [
 [[package]]
 name = "serenity-utils"
 version = "0.5.1"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#2227ddc2ee3091fa8dc4da9f82052900280d7ede"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#7fa18c559da54f4b45b84a2b5e34b9b36fb0f87e"
 dependencies = [
  "derive_more",
  "futures",
@@ -1480,7 +1480,7 @@ dependencies = [
 [[package]]
 name = "serenity-utils-derive"
 version = "0.5.1"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#2227ddc2ee3091fa8dc4da9f82052900280d7ede"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#7fa18c559da54f4b45b84a2b5e34b9b36fb0f87e"
 dependencies = [
  "proc-macro2",
  "quote",
