@@ -107,7 +107,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             |cmd| cmd
                 .description("In ein Team wechseln, z.B. für ein Quiz")
                 .create_option(|opt| {
-                    opt.name("team").description("Die Teamnummer").kind(ApplicationCommandOptionType::Integer).default_option(true).required(true);
+                    opt.name("team").description("Die Teamnummer").kind(ApplicationCommandOptionType::Integer).required(true);
                     for i in 1..=6 { opt.add_int_choice(i.to_string(), i); }
                     opt
                 }),
