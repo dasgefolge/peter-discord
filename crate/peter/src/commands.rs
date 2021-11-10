@@ -3,6 +3,11 @@
 #![allow(missing_docs)]
 
 use {
+    std::iter,
+    futures::{
+        pin_mut,
+        stream::TryStreamExt as _,
+    },
     itertools::Itertools as _,
     rand::{
         Rng as _,
@@ -25,9 +30,11 @@ use {
     },
     serenity_utils::shut_down,
     crate::{
+        ADMIN,
         GEFOLGE,
         GUEST,
         MENSCH,
+        QUIZMASTER,
         config::Config,
         emoji,
         parse,
@@ -40,6 +47,15 @@ use {
     },
 };
 pub use self::MAIN_GROUP as GROUP;
+
+const TEAMS: [RoleId; 6] = [
+    RoleId(828431321586991104),
+    RoleId(828431500747735100),
+    RoleId(828431624759935016),
+    RoleId(828431736194072606),
+    RoleId(828431741332750407),
+    RoleId(828431913738960956),
+];
 
 #[command]
 pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -147,18 +163,20 @@ pub async fn shuffle(_: &Context, _: &Message, _: Args) -> CommandResult {
     unimplemented!(); //TODO
 }
 
+#[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
+/// Die Rollen und Nicknames für Quizmaster und Teams aufräumen
+async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'static str> {
+    let members = guild_id.members_iter(ctx);
+    pin_mut!(members);
+    while let Some(mut member) = members.try_next().await? {
+        member.remove_roles(&ctx, &iter::once(QUIZMASTER).chain(TEAMS).collect_vec()).await?;
+    }
+    Ok("Teams aufgeräumt")
+}
+
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
 /// In ein Team wechseln, z.B. für ein Quiz
 async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6, description = "Die Teamnummer")] team: i64) -> serenity::Result<String> {
-    const TEAMS: [RoleId; 6] = [
-        RoleId(828431321586991104),
-        RoleId(828431500747735100),
-        RoleId(828431624759935016),
-        RoleId(828431736194072606),
-        RoleId(828431741332750407),
-        RoleId(828431913738960956),
-    ];
-
     let team_idx = (team - 1) as usize;
     member.remove_roles(&ctx, &TEAMS.iter().enumerate().filter_map(|(idx, &role_id)| (idx != team_idx).then(|| role_id)).collect_vec()).await?;
     member.add_role(ctx, TEAMS[team_idx]).await?;

@@ -22,6 +22,8 @@ pub mod werewolf;
 
 pub const GEFOLGE: GuildId = GuildId(355761290809180170);
 
+pub const ADMIN: RoleId = RoleId(355776689051140099);
+pub const QUIZMASTER: RoleId = RoleId(847443327069454378);
 pub const MENSCH: RoleId = RoleId(386753710434287626);
 pub const GUEST: RoleId = RoleId(784929665478557737);
 
