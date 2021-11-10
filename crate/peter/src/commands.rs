@@ -149,7 +149,7 @@ pub async fn shuffle(_: &Context, _: &Message, _: Args) -> CommandResult {
 
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
 /// In ein Team wechseln, z.B. für ein Quiz
-async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6, description = "Die Teamnummer")] team: i64) -> serenity::Result<()> {
+async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6, description = "Die Teamnummer")] team: i64) -> serenity::Result<String> {
     const TEAMS: [RoleId; 6] = [
         RoleId(828431321586991104),
         RoleId(828431500747735100),
@@ -162,7 +162,7 @@ async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6
     let team_idx = (team - 1) as usize;
     member.remove_roles(&ctx, &TEAMS.iter().enumerate().filter_map(|(idx, &role_id)| (idx != team_idx).then(|| role_id)).collect_vec()).await?;
     member.add_role(ctx, TEAMS[team_idx]).await?;
-    Ok(())
+    Ok(format!("du bist jetzt in Team {}", team))
 }
 
 #[command]
