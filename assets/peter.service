@@ -6,7 +6,7 @@ After=network.target
 [Service]
 Restart=always
 ExecStart=/home/fenhl/.cargo/bin/cargo run --release
-ExecStop=/home/fenhl/.cargo/bin/cargo run --release -- quit
+ExecStop=/opt/git/github.com/dasgefolge/peter-discord/master/target/release/peter quit
 User=fenhl
 Group=fenhl
 WorkingDirectory=/opt/git/github.com/dasgefolge/peter-discord/master
