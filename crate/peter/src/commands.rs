@@ -22,13 +22,13 @@ use {
                 group,
             },
         },
-        model::{
-            ModelError,
-            prelude::*,
-        },
+        model::prelude::*,
         prelude::*,
     },
-    serenity_utils::shut_down,
+    serenity_utils::{
+        shut_down,
+        slash::*,
+    },
     crate::{
         ADMIN,
         GEFOLGE,
@@ -37,7 +37,6 @@ use {
         QUIZMASTER,
         config::Config,
         emoji,
-        parse,
         werewolf::{
             COMMAND_DAY_COMMAND,
             COMMAND_IN_COMMAND,
@@ -57,69 +56,33 @@ const TEAMS: [RoleId; 6] = [
     RoleId(828431913738960956),
 ];
 
-#[command]
-pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = match msg.member(&ctx).await {
-        Ok(sender) => sender,
-        Err(serenity::Error::Model(ModelError::ItemMissing)) => {
-            //TODO get from `GEFOLGE` guild instead of erroring
-            msg.reply(ctx, "dieser Befehl funktioniert aus technischen Gründen aktuell nicht in Privatnachrichten").await?;
-            return Ok(());
-        }
-        Err(e) => return Err(Box::new(e) as _),
-    };
-    let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx).await) {
-        role
-    } else {
-        msg.reply(ctx, "diese Rolle existiert nicht").await?;
-        return Ok(());
-    };
-    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "diese Rolle ist nicht selbstzuweisbar").await?;
-        return Ok(());
+#[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
+/// Dir eine selbstzuweisbare Rolle zuweisen
+async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du haben möchtest")] role: Role) -> serenity::Result<&'static str> {
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
+        return Ok("diese Rolle ist nicht selbstzuweisbar")
     }
-    if sender.roles.contains(&role) {
-        msg.reply(ctx, "du hast diese Rolle schon").await?;
-        return Ok(());
+    if member.roles.contains(&role.id) {
+        return Ok("du hast diese Rolle schon")
     }
-    sender.add_role(&ctx, role).await?;
-    msg.react(&ctx, '✅').await?;
-    Ok(())
+    member.add_role(&ctx, role).await?;
+    Ok("✅")
 }
 
-#[command]
-pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = match msg.member(&ctx).await {
-        Ok(sender) => sender,
-        Err(serenity::Error::Model(ModelError::ItemMissing)) => {
-            //TODO get from `GEFOLGE` guild instead of erroring
-            msg.reply(ctx, "dieser Befehl funktioniert aus technischen Gründen aktuell nicht in Privatnachrichten").await?;
-            return Ok(());
-        }
-        Err(e) => return Err(Box::new(e) as _),
-    };
-    let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx).await) {
-        role
-    } else {
-        msg.reply(ctx, "diese Rolle existiert nicht").await?;
-        return Ok(());
-    };
-    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "diese Rolle ist nicht selbstzuweisbar").await?;
-        return Ok(());
+#[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
+/// Eine selbstzuweisbare Rolle von dir entfernen
+async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du loswerden möchtest")] role: Role) -> serenity::Result<&'static str> {
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
+        return Ok("diese Rolle ist nicht selbstzuweisbar")
     }
-    if !sender.roles.contains(&role) {
-        msg.reply(ctx, "du hast diese Rolle sowieso nicht").await?;
-        return Ok(());
+    if !member.roles.contains(&role.id) {
+        return Ok("du hast diese Rolle sowieso nicht")
     }
-    sender.remove_role(&ctx, role).await?;
-    msg.react(&ctx, '✅').await?;
-    Ok(())
+    member.remove_role(&ctx, role).await?;
+    Ok("✅")
 }
 
-#[serenity_utils::slash_command(GEFOLGE)]
+#[serenity_utils::slash_command(GEFOLGE, allow_all)]
 /// Testen, ob Peter online ist
 fn ping() -> String {
     let mut rng = thread_rng();
@@ -145,11 +108,11 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     Ok(())
 }
 
-#[command]
-#[owners_only]
-pub async fn quit(ctx: &Context, _: &Message, _: Args) -> CommandResult {
+#[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
+async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+    interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
     shut_down(&ctx).await;
-    Ok(())
+    Ok(NoResponse)
 }
 
 #[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
@@ -159,6 +122,7 @@ async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'stat
     pin_mut!(members);
     while let Some(mut member) = members.try_next().await? {
         member.remove_roles(&ctx, &iter::once(QUIZMASTER).chain(TEAMS).collect_vec()).await?;
+        //TODO adjust nickname
     }
     Ok("Teams aufgeräumt")
 }
@@ -177,26 +141,16 @@ async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6
     let team_idx = (team - 1) as usize;
     member.remove_roles(&ctx, &TEAMS.iter().enumerate().filter_map(|(idx, &role_id)| (idx != team_idx).then(|| role_id)).collect_vec()).await?;
     member.add_role(ctx, TEAMS[team_idx]).await?;
+    //TODO adjust nickname
     Ok(format!("du bist jetzt in Team {}", team))
-}
-
-#[command]
-#[owners_only]
-pub async fn test(_: &Context, msg: &Message, args: Args) -> CommandResult {
-    println!("[ ** ] test(&mut _, &{:?}, {:?})", *msg, args);
-    Ok(())
 }
 
 #[group]
 #[commands(
     command_day,
-    iam,
-    iamn,
     command_in,
     command_night,
     command_out,
     poll,
-    quit,
-    test,
 )]
 struct Main;
