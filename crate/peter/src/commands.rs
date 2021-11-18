@@ -119,15 +119,12 @@ pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
-#[command]
-pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let reply = {
-        let mut rng = thread_rng();
-        let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)));
-        if rng.gen_bool(0.01) { pingception } else { format!("pong") }
-    };
-    msg.reply(ctx, reply).await?;
-    Ok(())
+#[serenity_utils::slash_command(GEFOLGE)]
+/// Testen, ob Peter online ist
+fn ping() -> String {
+    let mut rng = thread_rng();
+    let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)));
+    if rng.gen_bool(0.01) { pingception } else { format!("pong") }
 }
 
 #[command]
@@ -155,14 +152,6 @@ pub async fn quit(ctx: &Context, _: &Message, _: Args) -> CommandResult {
     Ok(())
 }
 
-pub async fn roll(_: &Context, _: &Message, _: Args) -> CommandResult {
-    unimplemented!(); //TODO
-}
-
-pub async fn shuffle(_: &Context, _: &Message, _: Args) -> CommandResult {
-    unimplemented!(); //TODO
-}
-
 #[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
 /// Die Rollen und Nicknames für Quizmaster und Teams aufräumen
 async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'static str> {
@@ -172,6 +161,14 @@ async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'stat
         member.remove_roles(&ctx, &iter::once(QUIZMASTER).chain(TEAMS).collect_vec()).await?;
     }
     Ok("Teams aufgeräumt")
+}
+
+pub async fn roll(_: &Context, _: &Message, _: Args) -> CommandResult {
+    unimplemented!(); //TODO
+}
+
+pub async fn shuffle(_: &Context, _: &Message, _: Args) -> CommandResult {
+    unimplemented!(); //TODO
 }
 
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
@@ -198,7 +195,6 @@ pub async fn test(_: &Context, msg: &Message, args: Args) -> CommandResult {
     command_in,
     command_night,
     command_out,
-    ping,
     poll,
     quit,
     test,
