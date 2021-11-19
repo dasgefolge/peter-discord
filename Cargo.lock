@@ -1507,8 +1507,8 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils"
-version = "0.6.2"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#909f17c622cef72657dec95a915d2ffb2e511107"
+version = "0.6.3"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#3877bbfd20dd9c0c0c0d9b554072a6237119b2c9"
 dependencies = [
  "derive_more",
  "futures",
@@ -1523,8 +1523,8 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils-derive"
-version = "0.6.2"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#909f17c622cef72657dec95a915d2ffb2e511107"
+version = "0.6.3"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#3877bbfd20dd9c0c0c0d9b554072a6237119b2c9"
 dependencies = [
  "convert_case",
  "if_chain",

@@ -60,7 +60,7 @@ const TEAMS: [RoleId; 6] = [
 /// Dir eine selbstzuweisbare Rolle zuweisen
 async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du haben möchtest")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
-        return Ok("diese Rolle ist nicht selbstzuweisbar")
+        return Ok("diese Rolle ist nicht selbstzuweisbar") //TODO submit role list on command creation
     }
     if member.roles.contains(&role.id) {
         return Ok("du hast diese Rolle schon")
@@ -73,7 +73,7 @@ async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = 
 /// Eine selbstzuweisbare Rolle von dir entfernen
 async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du loswerden möchtest")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
-        return Ok("diese Rolle ist nicht selbstzuweisbar")
+        return Ok("diese Rolle ist nicht selbstzuweisbar") //TODO submit role list on command creation
     }
     if !member.roles.contains(&role.id) {
         return Ok("du hast diese Rolle sowieso nicht")
@@ -109,6 +109,7 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 }
 
 #[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
+/// Peter abschalten
 async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
     shut_down(&ctx).await;
