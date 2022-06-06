@@ -86,8 +86,11 @@ async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description =
 /// Testen, ob Peter online ist
 fn ping() -> String {
     let mut rng = thread_rng();
-    let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)));
-    if rng.gen_bool(0.01) { pingception } else { format!("pong") }
+    if rng.gen_bool(0.01) {
+        format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)))
+    } else {
+        format!("pong")
+    }
 }
 
 #[command]
