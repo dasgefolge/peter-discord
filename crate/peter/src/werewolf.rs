@@ -514,7 +514,7 @@ fn handle_game_state<'a>(ctx: &'a Context, state_ref: &'a mut GameState) -> Pin<
                 let everyone = RoleId(state_ref.guild.0); // Gefolge @everyone role, same ID as the guild
                 state_ref.config.text_channel.delete_permission(ctx, PermissionOverwriteType::Role(everyone)).await?;
                 for mut member in state_ref.guild.members(ctx, None, None).await? { //TODO make sure all members are checked
-                    if member.roles(ctx).await.map_or(false, |roles| roles.into_iter().any(|role| role.id == state_ref.config.role)) {
+                    if member.roles(ctx).map_or(false, |roles| roles.into_iter().any(|role| role.id == state_ref.config.role)) {
                         member.remove_role(ctx, state_ref.config.role).await?;
                     }
                 }

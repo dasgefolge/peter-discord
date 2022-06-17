@@ -48,7 +48,7 @@ pub async fn add(member: &Member, join_date: Option<DateTime<Utc>>) -> Result<()
     let buf = serde_json::to_vec_pretty(&Profile {
         bot: member.user.bot,
         discriminator: member.user.discriminator,
-        joined: member.joined_at.or(join_date),
+        joined: member.joined_at.map(|joined_at| *joined_at).or(join_date),
         nick: member.nick.clone(),
         roles: member.roles.iter().copied().collect(),
         snowflake: member.user.id,
