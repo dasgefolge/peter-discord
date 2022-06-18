@@ -33,7 +33,7 @@ use {
         Error,
         FENHL,
         GEFOLGE,
-        commands,
+        commands::*,
         config::Config,
         twitch,
         werewolf,
@@ -89,14 +89,17 @@ impl serenity_utils::handler::voice_state::ExporterMethods for VoiceStateExporte
     }
 }
 
-#[serenity_utils::main(ipc = "peter::ipc")]
+#[serenity_utils::main(
+    ipc = "peter::ipc",
+    slash_commands(iam, iamn, ping, quit, reset_quiz, team),
+)]
 async fn main() -> Result<serenity_utils::Builder, Error> {
     let config = Config::new().await?;
     Ok(serenity_utils::builder(365936493539229699, config.peter.bot_token.clone()).await?
         .error_notifier(ErrorNotifier::User(FENHL))
         .event_handler(serenity_utils::handler::user_list_exporter::<peter::user_list::Exporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
-        .message_commands(Some("!"), &commands::GROUP) //TODO migrate to slash commands
+        .message_commands(Some("!"), &GROUP) //TODO migrate to slash commands
         .plain_message(|ctx, msg| Box::pin(async move {
             (msg.is_private() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
                 if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {

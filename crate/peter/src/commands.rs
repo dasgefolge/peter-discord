@@ -58,7 +58,7 @@ const TEAMS: [RoleId; 6] = [
 
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
 /// Dir eine selbstzuweisbare Rolle zuweisen
-async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du haben möchtest")] role: Role) -> serenity::Result<&'static str> {
+pub async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du haben möchtest")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
         return Ok("diese Rolle ist nicht selbstzuweisbar") //TODO submit role list on command creation
     }
@@ -71,7 +71,7 @@ async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = 
 
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
 /// Eine selbstzuweisbare Rolle von dir entfernen
-async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du loswerden möchtest")] role: Role) -> serenity::Result<&'static str> {
+pub async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "die Rolle, die du loswerden möchtest")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").peter.self_assignable_roles.contains(&role.id) {
         return Ok("diese Rolle ist nicht selbstzuweisbar") //TODO submit role list on command creation
     }
@@ -84,7 +84,7 @@ async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description =
 
 #[serenity_utils::slash_command(GEFOLGE, allow_all)]
 /// Testen, ob Peter online ist
-fn ping() -> String {
+pub fn ping() -> String {
     let mut rng = thread_rng();
     if rng.gen_bool(0.01) {
         format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)))
@@ -93,7 +93,7 @@ fn ping() -> String {
     }
 }
 
-#[command]
+#[command] //TODO replace with message context menu command once supported on mobile
 pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut emoji_iter = emoji::Iter::new(msg).peekable();
     if emoji_iter.peek().is_some() {
@@ -113,7 +113,7 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
 #[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
 /// Peter abschalten
-async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+pub async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
     shut_down(&ctx).await;
     Ok(NoResponse)
@@ -121,7 +121,7 @@ async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> ser
 
 #[serenity_utils::slash_command(GEFOLGE, allow(ADMIN))]
 /// Die Rollen und Nicknames für Quizmaster und Teams aufräumen
-async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'static str> {
+pub async fn reset_quiz(ctx: &Context, guild_id: GuildId) -> serenity::Result<&'static str> {
     let members = guild_id.members_iter(ctx);
     pin_mut!(members);
     while let Some(mut member) = members.try_next().await? {
@@ -141,7 +141,7 @@ pub async fn shuffle(_: &Context, _: &Message, _: Args) -> CommandResult {
 
 #[serenity_utils::slash_command(GEFOLGE, allow(MENSCH, GUEST))]
 /// In ein Team wechseln, z.B. für ein Quiz
-async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6, description = "Die Teamnummer")] team: i64) -> serenity::Result<String> {
+pub async fn team(ctx: &Context, member: &mut Member, #[serenity_utils(range = 1..=6, description = "Die Teamnummer")] team: i64) -> serenity::Result<String> {
     let team_idx = (team - 1) as usize;
     member.remove_roles(&ctx, &TEAMS.iter().enumerate().filter_map(|(idx, &role_id)| (idx != team_idx).then(|| role_id)).collect_vec()).await?;
     member.add_role(ctx, TEAMS[team_idx]).await?;
