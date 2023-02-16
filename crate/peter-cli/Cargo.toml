@@ -22,10 +22,6 @@ path = "../peter"
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io?
 branch = "main"
 
-[dependencies.sqlx]
-version = "0.6"
-features = ["postgres", "runtime-tokio-rustls"]
-
 [dependencies.tokio]
 version = "1"
 features = ["macros", "rt-multi-thread"]

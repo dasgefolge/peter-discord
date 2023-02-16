@@ -31,10 +31,6 @@ features = ["derive"]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io?
 branch = "main"
 
-[dependencies.sqlx]
-version = "0.6"
-features = ["json", "macros", "postgres", "runtime-tokio-rustls"]
-
 [dependencies.tokio]
 version = "1"
 features = ["fs", "process", "time"]

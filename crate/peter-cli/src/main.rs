@@ -26,16 +26,11 @@ use {
         builder::ErrorNotifier,
         handler::voice_state::VoiceStates,
     },
-    sqlx::{
-        PgPool,
-        postgres::PgConnectOptions,
-    },
     tokio::{
         fs,
         time::sleep,
     },
     peter::{
-        Database,
         Error,
         FENHL,
         GEFOLGE,
@@ -122,7 +117,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         }))
         .unrecognized_message("ich habe diese Nachricht nicht verstanden")
         .data::<Config>(config)
-        .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("gefolge").application_name("peter")).await?)
         .data::<werewolf::GameState>(HashMap::default())
         .task(|ctx_fut, notify_thread_crash| async move {
             // check Twitch stream status
