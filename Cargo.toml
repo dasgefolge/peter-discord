@@ -2,3 +2,7 @@
 members = ["crate/*"]
 default-members = ["crate/peter-cli"]
 resolver = "2"
+
+[profile.release]
+lto = true
+strip = true

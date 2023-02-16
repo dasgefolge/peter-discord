@@ -3,11 +3,9 @@
 use {
     std::{
         ffi::OsString,
-        fmt,
         io,
         mem,
     },
-    derive_more::From,
     discord_message_parser::{
         MessagePart,
         serenity::MessageExt as _,
@@ -16,24 +14,19 @@ use {
 };
 
 /// An error that can occur while parsing emoji from a message.
-#[derive(Debug, From)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)] Io(#[from] io::Error),
     /// An error occurred while decoding a filename.
-    FilenameDecode(OsString),
-    /// A `std::io::Error` occurred.
-    Io(io::Error),
+    #[error("failed to read twemoji filename: {0:?}")]
+    OsString(OsString),
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::FilenameDecode(ref s) => write!(f, "failed to read twemoji filename: {:?}", s),
-            Error::Io(ref e) => write!(f, "io error while building emoji db: {}", e),
-        }
+impl From<OsString> for Error {
+    fn from(s: OsString) -> Self {
+        Self::OsString(s)
     }
 }
-
-impl std::error::Error for Error {}
 
 /// An iterator over all the emoji in a message.
 ///

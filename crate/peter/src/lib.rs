@@ -1,13 +1,16 @@
 #![deny(rust_2018_idioms, unused, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
+#![forbid(unsafe_code)]
 
 use {
     std::{
         env,
-        fmt,
         io,
     },
-    derive_more::From,
-    serenity::model::prelude::*
+    serenity::{
+        model::prelude::*,
+        prelude::*,
+    },
+    sqlx::PgPool,
 };
 
 pub mod commands;
@@ -29,76 +32,37 @@ pub const GUEST: RoleId = RoleId(784929665478557737);
 
 pub const FENHL: UserId = UserId(86841168427495424);
 
-#[derive(Debug, From)]
+/// `typemap` key for the PostgreSQL database connection.
+pub struct Database;
+
+impl TypeMapKey for Database {
+    type Value = PgPool;
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    Annotated(String, Box<Error>),
-    ChannelIdParse(ChannelIdParseError),
-    Env(env::VarError),
-    #[from(ignore)]
+    #[error(transparent)] ChannelIdParse(#[from] ChannelIdParseError),
+    #[error(transparent)] Env(#[from] env::VarError),
+    #[error(transparent)] Io(#[from] io::Error),
+    #[error(transparent)] Ipc(#[from] crate::ipc::Error),
+    #[error(transparent)] Json(#[from] serde_json::Error),
+    #[error(transparent)] QwwStartGame(#[from] quantum_werewolf::game::state::StartGameError),
+    #[error(transparent)] RoleIdParse(#[from] RoleIdParseError),
+    #[error(transparent)] Serenity(#[from] serenity::Error),
+    #[error(transparent)] Sql(#[from] sqlx::Error),
+    #[error(transparent)] Twitch(#[from] twitch_helix::Error),
+    #[error(transparent)] UserIdParse(#[from] UserIdParseError),
+    #[error("invalid game action: {0}")]
     GameAction(String),
-    Io(io::Error),
-    Ipc(crate::ipc::Error),
-    Json(serde_json::Error),
     /// Returned if the config is not present in Serenity context.
+    #[error("config missing in Serenity context")]
     MissingConfig,
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
+    #[error("Serenity context not available before ready event")]
     MissingContext,
     /// The reply to an IPC command did not end in a newline.
+    #[error("the reply to an IPC command did not end in a newline")]
     MissingNewline,
-    QwwStartGame(quantum_werewolf::game::state::StartGameError),
-    RoleIdParse(RoleIdParseError),
-    Serenity(serenity::Error),
-    Twitch(twitch_helix::Error),
+    #[error("Twitch returned unexpected user info")]
     TwitchUserLookup,
-    UserIdParse(UserIdParseError),
 }
-
-/// A helper trait for annotating errors with more informative error messages.
-pub trait IntoResultExt {
-    /// The return type of the `annotate` method.
-    type T;
-
-    /// Annotates an error with an additional message which is displayed along with the error.
-    fn annotate(self, note: impl ToString) -> Self::T;
-}
-
-impl<E: Into<Error>> IntoResultExt for E {
-    type T = Error;
-
-    fn annotate(self, note: impl ToString) -> Error {
-        Error::Annotated(note.to_string(), Box::new(self.into()))
-    }
-}
-
-impl<T, E: IntoResultExt> IntoResultExt for Result<T, E> {
-    type T = Result<T, E::T>;
-
-    fn annotate(self, note: impl ToString) -> Result<T, E::T> {
-        self.map_err(|e| e.annotate(note))
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Annotated(msg, e) => write!(f, "{}: {}", msg, e),
-            Error::ChannelIdParse(e) => e.fmt(f),
-            Error::Env(e) => e.fmt(f),
-            Error::GameAction(s) => write!(f, "invalid game action: {}", s),
-            Error::Io(e) => e.fmt(f),
-            Error::Ipc(e) => e.fmt(f),
-            Error::Json(e) => e.fmt(f),
-            Error::MissingConfig => write!(f, "config missing in Serenity context"),
-            Error::MissingContext => write!(f, "Serenity context not available before ready event"),
-            Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            Error::QwwStartGame(e) => e.fmt(f),
-            Error::RoleIdParse(e) => e.fmt(f),
-            Error::Serenity(e) => e.fmt(f),
-            Error::Twitch(e) => e.fmt(f),
-            Error::TwitchUserLookup => write!(f, "Twitch returned unexpected user info"),
-            Error::UserIdParse(e) => e.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
