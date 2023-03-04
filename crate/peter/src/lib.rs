@@ -6,7 +6,11 @@ use {
         env,
         io,
     },
-    serenity::model::prelude::*,
+    serenity::{
+        model::prelude::*,
+        prelude::*,
+    },
+    sqlx::PgPool,
 };
 
 pub mod commands;
@@ -28,6 +32,13 @@ pub const GUEST: RoleId = RoleId(784929665478557737);
 
 pub const FENHL: UserId = UserId(86841168427495424);
 
+/// `typemap` key for the PostgreSQL database connection.
+pub struct Database;
+
+impl TypeMapKey for Database {
+    type Value = PgPool;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)] ChannelIdParse(#[from] ChannelIdParseError),
@@ -38,6 +49,7 @@ pub enum Error {
     #[error(transparent)] QwwStartGame(#[from] quantum_werewolf::game::state::StartGameError),
     #[error(transparent)] RoleIdParse(#[from] RoleIdParseError),
     #[error(transparent)] Serenity(#[from] serenity::Error),
+    #[error(transparent)] Sql(#[from] sqlx::Error),
     #[error(transparent)] Twitch(#[from] twitch_helix::Error),
     #[error(transparent)] UserIdParse(#[from] UserIdParseError),
     #[error("invalid game action: {0}")]
