@@ -52,6 +52,7 @@ pub enum Error {
     #[error(transparent)] Sql(#[from] sqlx::Error),
     #[error(transparent)] Twitch(#[from] twitch_helix::Error),
     #[error(transparent)] UserIdParse(#[from] UserIdParseError),
+    #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("invalid game action: {0}")]
     GameAction(String),
     /// Returned if the config is not present in Serenity context.

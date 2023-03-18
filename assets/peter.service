@@ -2,14 +2,16 @@
 Description=Peter, Gefolge Discord bot
 Documentation=https://github.com/dasgefolge/peter-discord
 After=network.target
+Wants=network-online.target
 
 [Service]
 Restart=always
-ExecStart=/home/fenhl/.cargo/bin/cargo run --release
-ExecStop=/opt/git/github.com/dasgefolge/peter-discord/master/target/release/peter quit
+ExecStart=/home/fenhl/bin/peter
+ExecStop=/home/fenhl/bin/peter quit
 User=fenhl
 Group=fenhl
 WorkingDirectory=/opt/git/github.com/dasgefolge/peter-discord/master
+Environment="RUST_BACKTRACE=1"
 
 [Install]
 WantedBy=multi-user.target

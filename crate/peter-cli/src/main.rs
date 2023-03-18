@@ -30,10 +30,8 @@ use {
         PgPool,
         postgres::PgConnectOptions,
     },
-    tokio::{
-        fs,
-        time::sleep,
-    },
+    tokio::time::sleep,
+    wheel::fs,
     peter::{
         Database,
         Error,

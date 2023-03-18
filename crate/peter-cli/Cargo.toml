@@ -29,3 +29,7 @@ features = ["postgres", "runtime-tokio-rustls"]
 [dependencies.tokio]
 version = "1"
 features = ["macros", "rt-multi-thread"]
+
+[dependencies.wheel]
+git = "https://github.com/fenhl/wheel"
+branch = "main"

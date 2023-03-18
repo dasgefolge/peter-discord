@@ -37,8 +37,12 @@ features = ["json", "macros", "postgres", "runtime-tokio-rustls"]
 
 [dependencies.tokio]
 version = "1"
-features = ["fs", "process", "time"]
+features = ["process", "time"]
 
 [dependencies.twitch_helix]
 git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
+branch = "main"
+
+[dependencies.wheel]
+git = "https://github.com/fenhl/wheel"
 branch = "main"
