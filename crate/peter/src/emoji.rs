@@ -1,32 +1,13 @@
 //! Some utilities for working with emoji (both Unicode and custom) and message reactions.
 
 use {
-    std::{
-        ffi::OsString,
-        io,
-        mem,
-    },
+    std::mem,
     discord_message_parser::{
         MessagePart,
         serenity::MessageExt as _,
     },
     serenity::model::prelude::*,
 };
-
-/// An error that can occur while parsing emoji from a message.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)] Io(#[from] io::Error),
-    /// An error occurred while decoding a filename.
-    #[error("failed to read twemoji filename: {0:?}")]
-    OsString(OsString),
-}
-
-impl From<OsString> for Error {
-    fn from(s: OsString) -> Self {
-        Self::OsString(s)
-    }
-}
 
 /// An iterator over all the emoji in a message.
 ///
