@@ -158,7 +158,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("iam")
                     .kind(CommandType::ChatInput)
-                    .default_member_permissions(Permissions::ADMINISTRATOR)
                     .dm_permission(false)
                     .description("Dir eine selbstzuweisbare Rolle zuweisen")
                     .add_option(CreateCommandOption::new(
@@ -173,7 +172,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("iamn")
                     .kind(CommandType::ChatInput)
-                    .default_member_permissions(Permissions::ADMINISTRATOR)
                     .dm_permission(false)
                     .description("Eine selbstzuweisbare Rolle von dir entfernen")
                     .add_option(CreateCommandOption::new(
@@ -197,7 +195,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("reset-quiz")
                     .kind(CommandType::ChatInput)
-                    .default_member_permissions(Permissions::ADMINISTRATOR)
                     .dm_permission(false)
                     .description("Die Rollen und Nicknames für Quizmaster und Teams aufräumen")
                 );
@@ -207,7 +204,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("team")
                     .kind(CommandType::ChatInput)
-                    .default_member_permissions(Permissions::ADMINISTRATOR)
                     .dm_permission(false)
                     .description("In ein Team wechseln, z.B. für ein Quiz")
                     .add_option(CreateCommandOption::new(
