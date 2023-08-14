@@ -30,7 +30,12 @@ pub trait MessageBuilderExt {
 
 impl MessageBuilderExt for MessageBuilder {
     fn dm_mention(&mut self, user: &User) -> &mut Self {
-        self.mention(user).push_safe(format!(" ({}#{:04})", user.name, user.discriminator))
+        self.mention(user);
+        if let Some(discriminator) = user.discriminator {
+            self.push_safe(format!(" ({}#{discriminator:04})", user.name))
+        } else {
+            self.push_safe(format!(" (@{})", user.name))
+        }
     }
 }
 

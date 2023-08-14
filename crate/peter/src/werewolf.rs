@@ -30,15 +30,13 @@ use {
         Role,
         state::*,
     },
-    rand::{
-        Rng as _,
-        thread_rng,
-    },
+    rand::prelude::*,
     serde::{
         Deserialize,
         Serialize,
     },
     serenity::{
+        all::EditMember,
         framework::standard::{
             Args,
             CommandOptions,
@@ -127,7 +125,7 @@ impl GameState {
                     for (i, dead_player) in died.into_iter().enumerate() {
                         // update permissions
                         let roles = self.guild.member(ctx, dead_player.clone()).await?.roles.into_iter().filter(|&role| role != self.config.role);
-                        self.guild.edit_member(ctx, dead_player.clone(), |m| m.roles(roles)).await?;
+                        self.guild.edit_member(ctx, dead_player.clone(), EditMember::default().roles(roles)).await?;
                         // add to announcement
                         if i > 0 {
                             builder.push(" ");
@@ -140,7 +138,7 @@ impl GameState {
                         }
                         builder.push(".");
                     }
-                    self.config.text_channel.say(ctx, builder).await?;
+                    self.config.text_channel.say(ctx, builder.build()).await?;
                 }
             }
             Some(new_alive)
@@ -224,9 +222,9 @@ impl GameState {
                 }
             });
         }
-        self.config.text_channel.say(ctx, builder).await?;
+        self.config.text_channel.say(ctx, builder.build()).await?;
         // open discussion
-        self.config.text_channel.create_permission(ctx, &PermissionOverwrite {
+        self.config.text_channel.create_permission(ctx, PermissionOverwrite {
             kind: PermissionOverwriteType::Role(self.config.role),
             allow: Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS,
             deny: Permissions::empty(),
@@ -236,7 +234,7 @@ impl GameState {
         builder.push("Es wird Tag. Die Diskussion ist eröffnet. Absolute Mehrheit besteht aus ");
         builder.push_safe(cardinal(lynch_votes, Dat, F));
         builder.push(if lynch_votes == 1 { " Stimme." } else { " Stimmen." });
-        self.config.text_channel.say(ctx, builder).await?;
+        self.config.text_channel.say(ctx, builder.build()).await?;
         Ok(())
     }
 
@@ -282,7 +280,7 @@ async fn channel_check(ctx: &Context, msg: &Message, _: &mut Args, _: &CommandOp
     }
 }
 
-#[command("day")]
+#[command("day")] //TODO migrate to slash command
 #[checks(channel_check)]
 pub async fn command_day(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -293,14 +291,14 @@ pub async fn command_day(ctx: &Context, msg: &Message, _: Args) -> CommandResult
         let VoiceStates(ref chan_map) = voice_states;
         if let Some((_, users)) = chan_map.get(&voice_channel) {
             for user in users {
-                guild.edit_member(ctx, user, |m| m.mute(false)).await?;
+                guild.edit_member(ctx, user, EditMember::default().mute(false)).await?;
             }
         }
     }
     Ok(())
 }
 
-#[command("in")]
+#[command("in")] //TODO migrate to slash command
 #[checks(channel_check)]
 pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -324,7 +322,7 @@ pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult 
             }
             // add DISCUSSION_ROLE
             let roles = iter::once(conf.role).chain(guild.member(&ctx, msg.author.clone()).await?.roles.into_iter());
-            guild.edit_member(&ctx, msg.author.clone(), |m| m.roles(roles)).await?;
+            guild.edit_member(&ctx, msg.author.clone(), EditMember::default().roles(roles)).await?;
             msg.react(&ctx, '✅').await?;
         } else {
             msg.reply(&ctx, "bitte warte, bis das aktuelle Spiel vorbei ist").await?;
@@ -335,7 +333,7 @@ pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult 
     Ok(())
 }
 
-#[command("night")]
+#[command("night")] //TODO migrate to slash command
 #[checks(channel_check)]
 pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -347,7 +345,7 @@ pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResu
         if let Some((_, users)) = chan_map.get(&voice_channel) {
             for user in users {
                 if *user != msg.author {
-                    guild.edit_member(ctx, user, |m| m.mute(true)).await?;
+                    guild.edit_member(ctx, user, EditMember::default().mute(true)).await?;
                 }
             }
         }
@@ -355,7 +353,7 @@ pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResu
     Ok(())
 }
 
-#[command("out")]
+#[command("out")] //TODO migrate to slash command
 #[checks(channel_check)]
 pub async fn command_out(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild = msg.guild_id.expect("not in channel but check passed");
@@ -373,7 +371,7 @@ pub async fn command_out(ctx: &Context, msg: &Message, _: Args) -> CommandResult
             }
             // remove DISCUSSION_ROLE
             let roles = guild.member(&ctx, msg.author.clone()).await?.roles.into_iter().filter(|&role| role != conf.role);
-            guild.edit_member(&ctx, msg.author.clone(), |m| m.roles(roles)).await?;
+            guild.edit_member(&ctx, msg.author.clone(), EditMember::default().roles(roles)).await?;
             msg.react(&ctx, '✅').await?;
         } else {
             msg.reply(&ctx, "bitte warte, bis das aktuelle Spiel vorbei ist").await?; //TODO implement forfeiting
@@ -509,7 +507,7 @@ fn handle_game_state<'a>(ctx: &'a Context, state_ref: &'a mut GameState) -> Pin<
                         }
                         builder.push(" haben gewonnen")
                     }
-                }).await?;
+                }.build()).await?;
                 // unlock channel
                 let everyone = RoleId(state_ref.guild.0); // Gefolge @everyone role, same ID as the guild
                 state_ref.config.text_channel.delete_permission(ctx, PermissionOverwriteType::Role(everyone)).await?;
@@ -534,7 +532,7 @@ async fn handle_timeout(ctx: &Context, state_ref: &mut GameState) -> Result<Opti
             } else {
                 // lock channel
                 let everyone = RoleId(state_ref.guild.0); // Gefolge @everyone role, same ID as the guild
-                state_ref.config.text_channel.create_permission(ctx, &PermissionOverwrite {
+                state_ref.config.text_channel.create_permission(ctx, PermissionOverwrite {
                     kind: PermissionOverwriteType::Role(everyone),
                     allow: Permissions::empty(),
                     deny: Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS
@@ -680,7 +678,7 @@ pub fn quantum_role_dm(roles: &[Role], num_players: usize, secret_id: usize) -> 
     builder.push(".");
     // Rollenrang
     builder.push(" Dein Rollenrang ist ");
-    builder.push_bold(secret_id + 1);
+    builder.push_bold((secret_id + 1).to_string());
     builder.push(".");
     //TODO Partei (für qww erst relevant, wenn nur noch eine Rolle möglich ist)
     //TODO Dorfname (bei Variante „die Gemeinschaft der Dörfer“)

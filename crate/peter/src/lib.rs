@@ -13,9 +13,7 @@ use {
     sqlx::PgPool,
 };
 
-pub mod commands;
 pub mod config;
-pub mod emoji;
 pub mod ipc;
 pub mod lang;
 pub mod parse;
@@ -23,14 +21,14 @@ pub mod twitch;
 pub mod user_list;
 pub mod werewolf;
 
-pub const GEFOLGE: GuildId = GuildId(355761290809180170);
+pub const GEFOLGE: GuildId = GuildId::new(355761290809180170);
 
-pub const ADMIN: RoleId = RoleId(355776689051140099);
-pub const QUIZMASTER: RoleId = RoleId(847443327069454378);
-pub const MENSCH: RoleId = RoleId(386753710434287626);
-pub const GUEST: RoleId = RoleId(784929665478557737);
+pub const ADMIN: RoleId = RoleId::new(355776689051140099);
+pub const QUIZMASTER: RoleId = RoleId::new(847443327069454378);
+pub const MENSCH: RoleId = RoleId::new(386753710434287626);
+pub const GUEST: RoleId = RoleId::new(784929665478557737);
 
-pub const FENHL: UserId = UserId(86841168427495424);
+pub const FENHL: UserId = UserId::new(86841168427495424);
 
 /// `typemap` key for the PostgreSQL database connection.
 pub struct Database;

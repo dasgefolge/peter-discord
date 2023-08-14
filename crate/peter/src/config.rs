@@ -45,7 +45,7 @@ pub struct Channels {
 #[serde(rename_all = "camelCase")]
 pub struct Peter {
     pub bot_token: String,
-    pub(crate) self_assignable_roles: BTreeSet<RoleId>,
+    pub self_assignable_roles: BTreeSet<RoleId>,
 }
 
 impl Config {

@@ -3,18 +3,20 @@ use {
         collections::BTreeMap,
         convert::Infallible as Never,
         iter,
+        pin::pin,
         time::Duration,
     },
-    futures::{
-        pin_mut,
-        prelude::*,
-    },
+    futures::prelude::*,
     itertools::Itertools as _,
     serde::{
         Deserialize,
         Serialize,
     },
     serenity::{
+        all::{
+            CreateEmbed,
+            CreateMessage,
+        },
         model::prelude::*,
         prelude::*,
         utils::MessageBuilder,
@@ -28,8 +30,8 @@ use {
     crate::Error,
 };
 
-const CHANNEL: ChannelId = ChannelId(668518137334857728);
-const ROLE: RoleId = RoleId(668534306515320833);
+const CHANNEL: ChannelId = ChannelId::new(668518137334857728);
+const ROLE: RoleId = RoleId::new(668534306515320833);
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,13 +72,13 @@ pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
             if !last_status.iter().any(|iter_uid| user_id == iter_uid) {
                 let game = stream.game(&client).await?;
                 let ctx = ctx_fut.read().await;
-                CHANNEL.send_message(&*ctx, |m| m
-                    .content(MessageBuilder::default().mention(user_id).push(" streamt jetzt auf ").mention(&ROLE))
-                    .embed(|e| e
+                CHANNEL.send_message(&*ctx, CreateMessage::default()
+                    .content(MessageBuilder::default().mention(user_id).push(" streamt jetzt auf ").mention(&ROLE).build())
+                    .add_embed(CreateEmbed::default()
                         .color((0x77, 0x2c, 0xe8))
-                        .title(stream)
+                        .title(stream.to_string())
                         .url(stream.url())
-                        .description(game)
+                        .description(game.to_string())
                     )
                 ).await?;
             }
@@ -89,8 +91,7 @@ pub async fn alerts(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
 /// Returns the set of Gefolge members who are currently live on Twitch.
 async fn status(client: &Client<'_>, users: BTreeMap<UserId, twitch_helix::model::UserId>) -> Result<BTreeMap<UserId, Stream>, Error> {
     let mut map = BTreeMap::default();
-    let stream_infos = Stream::list(client, None, Some(users.values().cloned().collect()), None);
-    pin_mut!(stream_infos);
+    let mut stream_infos = pin!(Stream::list(client, None, Some(users.values().cloned().collect()), None));
     while let Some(stream_info) = stream_infos.try_next().await? {
         let discord_id = *users.iter().filter(|&(_, twitch_id)| stream_info.user_id == *twitch_id).exactly_one().map_err(|_| Error::TwitchUserLookup)?.0;
         map.insert(discord_id, stream_info);
