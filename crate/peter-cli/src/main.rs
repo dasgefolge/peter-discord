@@ -25,11 +25,9 @@ use {
     serenity::{
         all::{
             CreateCommand,
-            CreateCommandPermission,
             CreateCommandOption,
             CreateInteractionResponse,
             CreateInteractionResponseMessage,
-            EditCommandPermissions,
         },
         futures::TryFutureExt as _,
         model::prelude::*,
@@ -50,13 +48,10 @@ use {
     tokio::time::sleep,
     wheel::fs,
     peter::{
-        ADMIN,
         Database,
         Error,
         FENHL,
         GEFOLGE,
-        GUEST,
-        MENSCH,
         QUIZMASTER,
         config::Config,
         twitch,
@@ -228,29 +223,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 idx
             });
             let commands = guild.set_commands(ctx, commands).await?;
-            if let Some(idx) = iam {
-                guild.edit_command_permissions(ctx, commands[idx].id, EditCommandPermissions::new(vec![
-                    CreateCommandPermission::role(MENSCH, true),
-                    CreateCommandPermission::role(GUEST, true),
-                ])).await?;
-            }
-            if let Some(idx) = iamn {
-                guild.edit_command_permissions(ctx, commands[idx].id, EditCommandPermissions::new(vec![
-                    CreateCommandPermission::role(MENSCH, true),
-                    CreateCommandPermission::role(GUEST, true),
-                ])).await?;
-            }
-            if let Some(idx) = reset_quiz {
-                guild.edit_command_permissions(ctx, commands[idx].id, EditCommandPermissions::new(vec![
-                    CreateCommandPermission::role(ADMIN, true),
-                ])).await?;
-            }
-            if let Some(idx) = team {
-                guild.edit_command_permissions(ctx, commands[idx].id, EditCommandPermissions::new(vec![
-                    CreateCommandPermission::role(MENSCH, true),
-                    CreateCommandPermission::role(GUEST, true),
-                ])).await?;
-            }
             ctx.data.write().await.entry::<CommandIds>().or_default().insert(guild.id, CommandIds {
                 iam: iam.map(|idx| commands[idx].id),
                 iamn: iamn.map(|idx| commands[idx].id),
