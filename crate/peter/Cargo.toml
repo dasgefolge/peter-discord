@@ -33,7 +33,7 @@ git = "https://github.com/fenhl/serenity-utils"
 branch = "next"
 
 [dependencies.sqlx]
-version = "0.6"
+version = "0.7"
 default-features = false
 features = ["chrono", "json", "macros", "postgres", "runtime-tokio-rustls"]
 
