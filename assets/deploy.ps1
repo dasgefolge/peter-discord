@@ -21,7 +21,7 @@ ThrowOnNativeFailure
 ssh gefolge.org sudo systemctl stop peter
 ThrowOnNativeFailure
 
-ssh gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/master git pull
+ssh gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/main git pull
 ThrowOnNativeFailure
 
 scp .\target\wsl\release\peter gefolge.org:bin/peter

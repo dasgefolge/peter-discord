@@ -10,7 +10,7 @@ ExecStart=/home/fenhl/bin/peter
 ExecStop=/home/fenhl/bin/peter quit
 User=fenhl
 Group=fenhl
-WorkingDirectory=/opt/git/github.com/dasgefolge/peter-discord/master
+WorkingDirectory=/opt/git/github.com/dasgefolge/peter-discord/main
 Environment="RUST_BACKTRACE=1"
 
 [Install]
