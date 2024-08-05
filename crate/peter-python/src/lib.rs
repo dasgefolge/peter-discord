@@ -15,13 +15,13 @@ use {
 
 create_exception!(peter, CommandError, pyo3::exceptions::PyRuntimeError);
 
-fn user_to_id(user: &PyAny) -> PyResult<UserId> {
+fn user_to_id(user: Bound<'_, PyAny>) -> PyResult<UserId> {
     if let Ok(snowflake) = user.getattr("snowflake") {
         // support gefolge_web.login.Mensch arguments
-        Ok(UserId(snowflake.extract()?))
+        Ok(UserId::new(snowflake.extract()?))
     } else {
         // support plain snowflakes
-        Ok(UserId(user.extract()?))
+        Ok(UserId::new(user.extract()?))
     }
 }
 
@@ -31,17 +31,17 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
     builder.build()
 }
 
-#[pyfunction] fn add_role(user_id: &PyAny, role_id: u64) -> PyResult<()> {
-    peter_ipc::add_role(user_to_id(user_id)?, RoleId(role_id))
+#[pyfunction] fn add_role(user_id: Bound<'_, PyAny>, role_id: u64) -> PyResult<()> {
+    peter_ipc::add_role(user_to_id(user_id)?, RoleId::new(role_id))
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
 #[pyfunction] fn channel_msg(channel_id: u64, msg: String) -> PyResult<()> {
-    peter_ipc::channel_msg(ChannelId(channel_id), msg)
+    peter_ipc::channel_msg(ChannelId::new(channel_id), msg)
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
-#[pyfunction] fn msg(user_id: &PyAny, msg: String) -> PyResult<()> {
+#[pyfunction] fn msg(user_id: Bound<'_, PyAny>, msg: String) -> PyResult<()> {
     peter_ipc::msg(user_to_id(user_id)?, msg)
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
@@ -51,12 +51,12 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
-#[pyfunction] fn set_display_name(user_id: &PyAny, new_display_name: String) -> PyResult<()> {
+#[pyfunction] fn set_display_name(user_id: Bound<'_, PyAny>, new_display_name: String) -> PyResult<()> {
     peter_ipc::set_display_name(user_to_id(user_id)?, new_display_name)
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
-#[pymodule] fn peter(_: Python<'_>, m: &PyModule) -> PyResult<()> {
+#[pymodule] fn peter(_: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(escape))?;
     //TODO make sure that all IPC commands are listed below
     m.add_wrapped(wrap_pyfunction!(add_role))?;

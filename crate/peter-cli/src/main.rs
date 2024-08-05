@@ -1,3 +1,4 @@
+#![allow(deprecated)] //TODO remove use of CreateCommand::dm_permission once CreateCommand::contexts is no longer unstable Discord API
 #![deny(rust_2018_idioms, unused, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
 #![forbid(unsafe_code)]
 
@@ -136,6 +137,7 @@ impl TypeMapKey for CommandIds {
 }
 
 #[serenity_utils::main(ipc = "peter::ipc")]
+
 async fn main() -> Result<serenity_utils::Builder, Error> {
     let config = Config::new().await?;
     Ok(serenity_utils::builder(config.peter.bot_token.clone()).await?
@@ -143,7 +145,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .event_handler(serenity_utils::handler::user_list_exporter::<peter::user_list::Exporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
         .plain_message(|ctx, msg| Box::pin(async move {
-            (msg.is_private() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
+            (msg.guild_id.is_none() || ctx.data.read().await.get::<Config>().expect("missing config").werewolf.iter().any(|(_, conf)| conf.text_channel == msg.channel_id)) && {
                 if let Some(action) = werewolf::parse_action(ctx, msg.author.id, &msg.content).await {
                     match async move { action }.and_then(|action| werewolf::handle_action(ctx, msg, action)).await {
                         Ok(()) => {} // reaction is posted in handle_action
