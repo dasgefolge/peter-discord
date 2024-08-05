@@ -37,21 +37,10 @@ use {
     },
     serenity::{
         all::EditMember,
-        framework::standard::{
-            Args,
-            CommandOptions,
-            CommandResult,
-            Reason,
-            macros::{
-                check,
-                command,
-            },
-        },
         model::prelude::*,
         prelude::*,
         utils::MessageBuilder,
     },
-    serenity_utils::handler::voice_state::VoiceStates,
     tokio::time::sleep,
     crate::{
         Error,
@@ -59,13 +48,14 @@ use {
         parse,
     },
 };
+pub use quantum_werewolf::game::state::State;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    role: RoleId,
+    pub role: RoleId,
     pub text_channel: ChannelId,
-    voice_channel: Option<ChannelId>,
+    pub voice_channel: Option<ChannelId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -95,7 +85,7 @@ impl Action {
 pub struct GameState {
     guild: GuildId,
     config: Config,
-    state: State<UserId>,
+    pub state: State<UserId>,
     alive: Option<HashSet<UserId>>,
     night_actions: Vec<NightAction<UserId>>,
     timeouts: Vec<bool>,
@@ -103,7 +93,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    fn new(guild: GuildId, config: Config) -> GameState {
+    pub fn new(guild: GuildId, config: Config) -> GameState {
         GameState {
             guild, config,
             state: State::default(),
@@ -262,127 +252,23 @@ impl TypeMapKey for GameState {
     type Value = HashMap<GuildId, GameState>;
 }
 
-#[check]
-#[name = "channel_check"]
-async fn channel_check(ctx: &Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> Result<(), Reason> {
-    if let Some(guild_id) = msg.guild_id {
+pub async fn channel_check(ctx: &Context, interaction: &CommandInteraction) -> Result<GuildId, &'static str> {
+    if let Some(guild_id) = interaction.guild_id {
         if let Some(conf) = ctx.data.read().await.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild_id) {
-            if msg.channel_id == conf.text_channel {
-                Ok(())
+            if interaction.channel_id == conf.text_channel {
+                Ok(guild_id)
             } else {
-                Err(Reason::User(format!("Dieser Befehl funktioniert nur im Werwölfe-Channel.")))
+                Err("Dieser Befehl funktioniert nur im Werwölfe-Channel.")
             }
         } else {
-            Err(Reason::User(format!("Werwölfe ist auf diesem Server noch nicht eingerichtet.")))
+            Err("Werwölfe ist auf diesem Server noch nicht eingerichtet.")
         }
     } else {
-        Err(Reason::User(format!("Dieser Befehl funktioniert nur in einem Channel.")))
+        Err("Dieser Befehl funktioniert nur in einem Channel.")
     }
 }
 
-#[command("day")] //TODO migrate to slash command
-#[checks(channel_check)]
-pub async fn command_day(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let guild = msg.guild_id.expect("not in channel but check passed");
-    let data = ctx.data.read().await;
-    let conf = *data.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
-    if let Some(voice_channel) = conf.voice_channel {
-        let voice_states = data.get::<VoiceStates>().expect("missing voice states map");
-        let VoiceStates(ref chan_map) = voice_states;
-        if let Some((_, users)) = chan_map.get(&voice_channel) {
-            for user in users {
-                guild.edit_member(ctx, user, EditMember::default().mute(false)).await?;
-            }
-        }
-    }
-    Ok(())
-}
-
-#[command("in")] //TODO migrate to slash command
-#[checks(channel_check)]
-pub async fn command_in(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let guild = msg.guild_id.expect("not in channel but check passed");
-    {
-        let mut data = ctx.data.write().await;
-        let conf = *data.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
-        let state = data.get_mut::<GameState>().expect("missing Werewolf game state");
-        if state.iter().any(|(&iter_guild, iter_state)| iter_guild != guild && iter_state.state.secret_ids().map_or(false, |secret_ids| secret_ids.contains(&msg.author.id))) {
-            msg.reply(&ctx, "du bist schon in einem Spiel auf einem anderen Server").await?;
-            return Ok(())
-        }
-        let state = state.entry(guild).or_insert_with(|| GameState::new(guild, conf));
-        if let State::Complete(_) = state.state {
-            state.state = State::default();
-        }
-        if let State::Signups(ref mut signups) = state.state {
-            // sign up for game
-            if !signups.sign_up(msg.author.id) {
-                msg.reply(&ctx, "du bist schon angemeldet").await?;
-                return Ok(())
-            }
-            // add DISCUSSION_ROLE
-            let roles = iter::once(conf.role).chain(guild.member(&ctx, msg.author.clone()).await?.roles.into_iter());
-            guild.edit_member(&ctx, msg.author.clone(), EditMember::default().roles(roles)).await?;
-            msg.react(&ctx, '✅').await?;
-        } else {
-            msg.reply(&ctx, "bitte warte, bis das aktuelle Spiel vorbei ist").await?;
-            return Ok(())
-        }
-    }
-    continue_game(&ctx, guild).await?;
-    Ok(())
-}
-
-#[command("night")] //TODO migrate to slash command
-#[checks(channel_check)]
-pub async fn command_night(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let guild = msg.guild_id.expect("not in channel but check passed");
-    let data = ctx.data.read().await;
-    let conf = *data.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
-    if let Some(voice_channel) = conf.voice_channel {
-        let voice_states = data.get::<VoiceStates>().expect("missing voice states map");
-        let VoiceStates(ref chan_map) = voice_states;
-        if let Some((_, users)) = chan_map.get(&voice_channel) {
-            for user in users {
-                if *user != msg.author {
-                    guild.edit_member(ctx, user, EditMember::default().mute(true)).await?;
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
-#[command("out")] //TODO migrate to slash command
-#[checks(channel_check)]
-pub async fn command_out(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let guild = msg.guild_id.expect("not in channel but check passed");
-    {
-        let mut data = ctx.data.write().await;
-        let conf = *data.get::<crate::config::Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
-        let state = data.get_mut::<GameState>().expect("missing Werewolf game state").entry(guild).or_insert_with(|| GameState::new(guild, conf));
-        if let State::Complete(_) = state.state {
-            state.state = State::default();
-        }
-        if let State::Signups(ref mut signups) = state.state {
-            if !signups.remove_player(&msg.author.id) {
-                msg.reply(&ctx, "du warst nicht angemeldet").await?;
-                return Ok(())
-            }
-            // remove DISCUSSION_ROLE
-            let roles = guild.member(&ctx, msg.author.clone()).await?.roles.into_iter().filter(|&role| role != conf.role);
-            guild.edit_member(&ctx, msg.author.clone(), EditMember::default().roles(roles)).await?;
-            msg.react(&ctx, '✅').await?;
-        } else {
-            msg.reply(&ctx, "bitte warte, bis das aktuelle Spiel vorbei ist").await?; //TODO implement forfeiting
-            return Ok(())
-        }
-    }
-    continue_game(&ctx, guild).await?;
-    Ok(())
-}
-
-async fn continue_game(ctx: &Context, guild: GuildId) -> Result<(), Error> {
+pub async fn continue_game(ctx: &Context, guild: GuildId) -> Result<(), Error> {
     let (mut timeout_idx, mut sleep_duration) = {
         let mut data = ctx.data.write().await;
         let state_ref = data.get_mut::<GameState>().expect("missing Werewolf game state").get_mut(&guild).expect("tried to continue game that hasn't started");
@@ -509,9 +395,8 @@ fn handle_game_state<'a>(ctx: &'a Context, state_ref: &'a mut GameState) -> Pin<
                     }
                 }.build()).await?;
                 // unlock channel
-                let everyone = RoleId(state_ref.guild.0); // Gefolge @everyone role, same ID as the guild
-                state_ref.config.text_channel.delete_permission(ctx, PermissionOverwriteType::Role(everyone)).await?;
-                for mut member in state_ref.guild.members(ctx, None, None).await? { //TODO make sure all members are checked
+                state_ref.config.text_channel.delete_permission(ctx, PermissionOverwriteType::Role(state_ref.guild.everyone_role())).await?;
+                for member in state_ref.guild.members(ctx, None, None).await? { //TODO make sure all members are checked
                     if member.roles(ctx).map_or(false, |roles| roles.into_iter().any(|role| role.id == state_ref.config.role)) {
                         member.remove_role(ctx, state_ref.config.role).await?;
                     }
@@ -531,9 +416,8 @@ async fn handle_timeout(ctx: &Context, state_ref: &mut GameState) -> Result<Opti
                 State::Signups(signups)
             } else {
                 // lock channel
-                let everyone = RoleId(state_ref.guild.0); // Gefolge @everyone role, same ID as the guild
                 state_ref.config.text_channel.create_permission(ctx, PermissionOverwrite {
-                    kind: PermissionOverwriteType::Role(everyone),
+                    kind: PermissionOverwriteType::Role(state_ref.guild.everyone_role()),
                     allow: Permissions::empty(),
                     deny: Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS
                 }).await?;

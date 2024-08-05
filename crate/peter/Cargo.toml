@@ -10,7 +10,6 @@ itertools = "0.11"
 num-traits = "0.2"
 rand = "0.8"
 serde_json = "1"
-#serenity = "0.11" # waiting for support for new username system to be published
 thiserror = "1"
 
 [dependencies.quantum-werewolf]
@@ -22,15 +21,13 @@ version = "1"
 features = ["derive"]
 
 [dependencies.serenity]
-git = "https://github.com/serenity-rs/serenity"
-branch = "next"
+version = "0.12"
 default-features = false
 features = ["rustls_backend", "temp_cache"]
 
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils"
-#branch = "main" # waiting for a serenity version with support for new username system to be published
-branch = "next"
+branch = "main"
 
 [dependencies.sqlx]
 version = "0.7"

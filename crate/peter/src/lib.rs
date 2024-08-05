@@ -39,17 +39,14 @@ impl TypeMapKey for Database {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error(transparent)] ChannelIdParse(#[from] ChannelIdParseError),
     #[error(transparent)] Env(#[from] env::VarError),
     #[error(transparent)] Io(#[from] io::Error),
-    #[error(transparent)] Ipc(#[from] crate::ipc::Error),
+    #[error(transparent)] Ipc(#[from] ipc::Error),
     #[error(transparent)] Json(#[from] serde_json::Error),
     #[error(transparent)] QwwStartGame(#[from] quantum_werewolf::game::state::StartGameError),
-    #[error(transparent)] RoleIdParse(#[from] RoleIdParseError),
     #[error(transparent)] Serenity(#[from] serenity::Error),
     #[error(transparent)] Sql(#[from] sqlx::Error),
     #[error(transparent)] Twitch(#[from] twitch_helix::Error),
-    #[error(transparent)] UserIdParse(#[from] UserIdParseError),
     #[error(transparent)] Wheel(#[from] wheel::Error),
     #[error("invalid game action: {0}")]
     GameAction(String),

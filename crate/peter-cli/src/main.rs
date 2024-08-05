@@ -28,6 +28,7 @@ use {
             CreateCommandOption,
             CreateInteractionResponse,
             CreateInteractionResponseMessage,
+            EditMember,
         },
         futures::TryFutureExt as _,
         model::prelude::*,
@@ -119,8 +120,12 @@ impl serenity_utils::handler::voice_state::ExporterMethods for VoiceStateExporte
 
 #[derive(Clone, Copy)]
 pub(crate) struct CommandIds {
+    day: CommandId,
     iam: Option<CommandId>,
     iamn: Option<CommandId>,
+    r#in: CommandId,
+    night: CommandId,
+    out: CommandId,
     ping: Option<CommandId>,
     reset_quiz: Option<CommandId>,
     team: Option<CommandId>,
@@ -154,6 +159,14 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .unrecognized_message("ich habe diese Nachricht nicht verstanden")
         .on_guild_create(false, |ctx, guild, _| Box::pin(async move {
             let mut commands = Vec::default();
+            let day = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("day")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                );
+                idx
+            };
             let iam = (guild.id == GEFOLGE).then(|| {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("iam")
@@ -182,6 +195,30 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 );
                 idx
             });
+            let r#in = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("in")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                );
+                idx
+            };
+            let night = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("night")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                );
+                idx
+            };
+            let out = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("out")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                );
+                idx
+            };
             let ping = (guild.id == GEFOLGE).then(|| {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("ping")
@@ -220,8 +257,12 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             });
             let commands = guild.set_commands(ctx, commands).await?;
             ctx.data.write().await.entry::<CommandIds>().or_default().insert(guild.id, CommandIds {
+                day: commands[day].id,
                 iam: iam.map(|idx| commands[idx].id),
                 iamn: iamn.map(|idx| commands[idx].id),
+                r#in: commands[r#in].id,
+                night: commands[night].id,
+                out: commands[out].id,
                 ping: ping.map(|idx| commands[idx].id),
                 reset_quiz: reset_quiz.map(|idx| commands[idx].id),
                 team: team.map(|idx| commands[idx].id),
@@ -233,8 +274,28 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 Interaction::Command(interaction) => {
                     let guild_id = interaction.guild_id.expect("Discord slash command called outside of a guild");
                     if let Some(&command_ids) = ctx.data.read().await.get::<CommandIds>().and_then(|command_ids| command_ids.get(&guild_id)) {
-                        if Some(interaction.data.id) == command_ids.iam {
-                            let mut member = interaction.member.clone().expect("/iam called outside of a guild");
+                        if interaction.data.id == command_ids.day {
+                            match werewolf::channel_check(ctx, &interaction).await {
+                                Ok(guild) => {
+                                    let data = ctx.data.read().await;
+                                    let conf = *data.get::<Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+                                    if let Some(voice_channel) = conf.voice_channel {
+                                        let voice_states = data.get::<VoiceStates>().expect("missing voice states map");
+                                        let VoiceStates(ref chan_map) = voice_states;
+                                        if let Some((_, users)) = chan_map.get(&voice_channel) {
+                                            for user in users {
+                                                guild.edit_member(ctx, user, EditMember::default().mute(false)).await?;
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(response) => interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content(response)
+                                )).await?,
+                            }
+                        } else if Some(interaction.data.id) == command_ids.iam {
+                            let member = interaction.member.clone().expect("/iam called outside of a guild");
                             let role_id = match interaction.data.options[0].value {
                                 CommandDataOptionValue::Role(role) => role,
                                 _ => panic!("unexpected slash command option type"),
@@ -252,7 +313,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                                 .content(response)
                             )).await?;
                         } else if Some(interaction.data.id) == command_ids.iamn {
-                            let mut member = interaction.member.clone().expect("/iamn called outside of a guild");
+                            let member = interaction.member.clone().expect("/iamn called outside of a guild");
                             let role_id = match interaction.data.options[0].value {
                                 CommandDataOptionValue::Role(role) => role,
                                 _ => panic!("unexpected slash command option type"),
@@ -269,6 +330,117 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                                 .ephemeral(true)
                                 .content(response)
                             )).await?;
+                        } else if interaction.data.id == command_ids.r#in {
+                            match werewolf::channel_check(ctx, &interaction).await {
+                                Ok(guild) => {
+                                    {
+                                        let mut data = ctx.data.write().await;
+                                        let conf = *data.get::<Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+                                        let state = data.get_mut::<werewolf::GameState>().expect("missing Werewolf game state");
+                                        if state.iter().any(|(&iter_guild, iter_state)| iter_guild != guild && iter_state.state.secret_ids().map_or(false, |secret_ids| secret_ids.contains(&interaction.user.id))) {
+                                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                .ephemeral(true)
+                                                .content("du bist schon in einem Spiel auf einem anderen Server")
+                                            )).await?;
+                                            return Ok(())
+                                        }
+                                        let state = state.entry(guild).or_insert_with(|| werewolf::GameState::new(guild, conf));
+                                        if let werewolf::State::Complete(_) = state.state {
+                                            state.state = werewolf::State::default();
+                                        }
+                                        if let werewolf::State::Signups(ref mut signups) = state.state {
+                                            // sign up for game
+                                            if !signups.sign_up(interaction.user.id) {
+                                                interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                    .ephemeral(true)
+                                                    .content("du bist schon angemeldet")
+                                                )).await?;
+                                                return Ok(())
+                                            }
+                                            // add DISCUSSION_ROLE
+                                            let roles = iter::once(conf.role).chain(interaction.member.as_ref().unwrap().roles.iter().copied());
+                                            guild.edit_member(&ctx, interaction.user.id, EditMember::default().roles(roles)).await?;
+                                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                .ephemeral(false)
+                                                .content("✅")
+                                            )).await?;
+                                        } else {
+                                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                .ephemeral(true)
+                                                .content("bitte warte, bis das aktuelle Spiel vorbei ist")
+                                            )).await?;
+                                            return Ok(())
+                                        }
+                                    }
+                                    werewolf::continue_game(&ctx, guild).await?;
+                                }
+                                Err(response) => interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content(response)
+                                )).await?,
+                            }
+                        } else if interaction.data.id == command_ids.night {
+                            match werewolf::channel_check(ctx, &interaction).await {
+                                Ok(guild) => {
+                                    let data = ctx.data.read().await;
+                                    let conf = *data.get::<Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+                                    if let Some(voice_channel) = conf.voice_channel {
+                                        let voice_states = data.get::<VoiceStates>().expect("missing voice states map");
+                                        let VoiceStates(ref chan_map) = voice_states;
+                                        if let Some((_, users)) = chan_map.get(&voice_channel) {
+                                            for user in users {
+                                                if *user != interaction.user {
+                                                    guild.edit_member(ctx, user, EditMember::default().mute(true)).await?;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(response) => interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content(response)
+                                )).await?,
+                            }
+                        } else if interaction.data.id == command_ids.out {
+                            match werewolf::channel_check(ctx, &interaction).await {
+                                Ok(guild) => {
+                                    {
+                                        let mut data = ctx.data.write().await;
+                                        let conf = *data.get::<Config>().expect("missing config").werewolf.get(&guild).expect("unconfigured guild but check passed");
+                                        let state = data.get_mut::<werewolf::GameState>().expect("missing Werewolf game state").entry(guild).or_insert_with(|| werewolf::GameState::new(guild, conf));
+                                        if let werewolf::State::Complete(_) = state.state {
+                                            state.state = werewolf::State::default();
+                                        }
+                                        if let werewolf::State::Signups(ref mut signups) = state.state {
+                                            if !signups.remove_player(&interaction.user.id) {
+                                                interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                    .ephemeral(true)
+                                                    .content("du warst nicht angemeldet")
+                                                )).await?;
+                                                return Ok(())
+                                            }
+                                            // remove DISCUSSION_ROLE
+                                            let roles = interaction.member.as_ref().unwrap().roles.iter().copied().filter(|&role| role != conf.role);
+                                            guild.edit_member(&ctx, interaction.user.id, EditMember::default().roles(roles)).await?;
+                                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                .ephemeral(false)
+                                                .content("✅")
+                                            )).await?;
+                                        } else {
+                                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                                .ephemeral(true)
+                                                .content("bitte warte, bis das aktuelle Spiel vorbei ist") //TODO implement forfeiting
+                                            )).await?;
+                                            return Ok(())
+                                        }
+                                    }
+                                    werewolf::continue_game(&ctx, guild).await?;
+                                }
+                                Err(response) => interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content(response)
+                                )).await?,
+                            }
                         } else if Some(interaction.data.id) == command_ids.ping {
                             interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
                                 .ephemeral(true)
@@ -283,7 +455,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                             )).await?;
                         } else if Some(interaction.data.id) == command_ids.reset_quiz {
                             let mut members = pin!(guild_id.members_iter(ctx));
-                            while let Some(mut member) = members.try_next().await? {
+                            while let Some(member) = members.try_next().await? {
                                 member.remove_roles(&ctx, &iter::once(QUIZMASTER).chain(TEAMS).collect_vec()).await?;
                                 //TODO adjust nickname
                             }
@@ -292,7 +464,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                                 .content("Teams aufgeräumt")
                             )).await?;
                         } else if Some(interaction.data.id) == command_ids.team {
-                            let mut member = interaction.member.clone().expect("/team called outside of a guild");
+                            let member = interaction.member.clone().expect("/team called outside of a guild");
                             let team = match interaction.data.options[0].value {
                                 CommandDataOptionValue::Integer(team) => team,
                                 _ => panic!("unexpected slash command option type"),
