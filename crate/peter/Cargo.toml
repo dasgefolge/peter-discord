@@ -8,40 +8,14 @@ edition = "2021"
 futures = "0.3"
 itertools = "0.13"
 num-traits = "0.2"
+quantum-werewolf = { git = "https://github.com/dasgefolge/quantum-werewolf", branch = "main" }
 rand = "0.8"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "current", default-features = false, features = ["rustls_backend", "temp_cache"] }
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "current" }
+sqlx = { version = "0.8", default-features = false, features = ["chrono", "json", "macros", "postgres", "runtime-tokio-rustls"] }
 thiserror = "1"
-
-[dependencies.quantum-werewolf]
-git = "https://github.com/dasgefolge/quantum-werewolf"
-branch = "main"
-
-[dependencies.serde]
-version = "1"
-features = ["derive"]
-
-[dependencies.serenity]
-version = "0.12"
-default-features = false
-features = ["rustls_backend", "temp_cache"]
-
-[dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils"
-branch = "main"
-
-[dependencies.sqlx]
-version = "0.8"
-default-features = false
-features = ["chrono", "json", "macros", "postgres", "runtime-tokio-rustls"]
-
-[dependencies.tokio]
-version = "1"
-features = ["process", "time"]
-
-[dependencies.twitch_helix]
-git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
-branch = "main"
-
-[dependencies.wheel]
-git = "https://github.com/fenhl/wheel"
-branch = "main"
+tokio = { version = "1", features = ["process", "time"] }
+twitch_helix = { git = "https://github.com/fenhl/rust-twitch-helix", branch = "main" } #TODO publish to crates.io
+wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }

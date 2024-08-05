@@ -9,11 +9,6 @@ name = "peter_ipc"
 path = "src/lib.rs"
 
 [dependencies]
-serenity = "0.12"
-
-[dependencies.peter]
-path = "../peter"
-
-[dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils"
-branch = "main"
+peter = { path = "../peter" }
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "current" }
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "current" }
