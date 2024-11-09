@@ -48,7 +48,10 @@ use {
         postgres::PgConnectOptions,
     },
     tokio::time::sleep,
-    wheel::fs,
+    wheel::{
+        fs,
+        traits::IsNetworkError as _,
+    },
     peter::{
         Database,
         Error,
@@ -507,7 +510,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                     wait_time *= 2; // exponential backoff
                 }
                 eprintln!("{}", e);
-                if wait_time >= Duration::from_secs(2) { // only notify on multiple consecutive errors
+                if wait_time >= Duration::from_secs(if e.is_network_error() { 60 } else { 2 }) { // only notify on multiple consecutive errors
                     notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await;
                 }
                 sleep(wait_time).await; // wait before attempting to reconnect

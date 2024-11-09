@@ -18,4 +18,4 @@ sqlx = { version = "0.8", default-features = false, features = ["chrono", "json"
 thiserror = "1"
 tokio = { version = "1", features = ["process", "time"] }
 twitch_helix = { git = "https://github.com/fenhl/rust-twitch-helix", branch = "main" } #TODO publish to crates.io
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
+wheel = { git = "https://github.com/fenhl/wheel", branch = "main", features = ["reqwest", "tungstenite021"] }

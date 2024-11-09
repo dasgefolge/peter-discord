@@ -11,6 +11,7 @@ use {
         prelude::*,
     },
     sqlx::PgPool,
+    wheel::traits::IsNetworkError,
 };
 
 pub mod config;
@@ -61,4 +62,34 @@ pub enum Error {
     MissingNewline,
     #[error("Twitch returned unexpected user info")]
     TwitchUserLookup,
+}
+
+impl IsNetworkError for Error {
+    fn is_network_error(&self) -> bool {
+        match self {
+            | Self::Env(_)
+            | Self::Ipc(_)
+            | Self::Json(_)
+            | Self::QwwStartGame(_)
+            | Self::Sql(_)
+            | Self::GameAction(_)
+            | Self::MissingConfig
+            | Self::MissingContext
+            | Self::MissingNewline
+            | Self::TwitchUserLookup
+                => false,
+            Self::Io(e) => e.is_network_error(),
+            Self::Serenity(e) => match e {
+                serenity::Error::Http(HttpError::Request(e)) => e.is_request() || e.is_connect() || e.is_timeout() || e.status().is_some_and(|status| status.is_server_error()),
+                serenity::Error::Io(e) => e.is_network_error(),
+                serenity::Error::Tungstenite(e) => e.is_network_error(),
+                _ => false,
+            },
+            Self::Twitch(e) => match e {
+                twitch_helix::Error::ExactlyOne(_) | twitch_helix::Error::InvalidHeaderValue(_) | twitch_helix::Error::ResponseJson(_, _) => false,
+                twitch_helix::Error::HttpStatus(e, _) | twitch_helix::Error::Reqwest(e) => e.is_network_error(),
+            },
+            Self::Wheel(e) => e.is_network_error(),
+        }
+    }
 }
