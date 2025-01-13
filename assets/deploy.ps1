@@ -5,19 +5,25 @@ if (-not $?)
 }
 
 # copy the tree to the WSL file system to improve compile times
-wsl -d nixos-m2 rsync --delete -av /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/ /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/ --exclude target
+wsl rsync --delete -av /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/ /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/ --exclude target
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-wsl -d nixos-m2 env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord nix-shell -p musl --run 'cargo build --release --target=x86_64-unknown-linux-musl'
+wsl env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord cargo build --release --target=x86_64-unknown-linux-musl
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-wsl -d nixos-m2 cp /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/target/x86_64-unknown-linux-musl/release/peter /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release/peter
+wsl mkdir -p /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release
+if (-not $?)
+{
+    throw 'Native Failure'
+}
+
+wsl cp /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/target/x86_64-unknown-linux-musl/release/peter /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release/peter
 if (-not $?)
 {
     throw 'Native Failure'
