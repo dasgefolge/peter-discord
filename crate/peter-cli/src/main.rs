@@ -169,6 +169,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 commands.push(CreateCommand::new("day")
                     .kind(CommandType::ChatInput)
                     .dm_permission(false)
+                    .description("In Quantenwerwölfe den nächsten Tag starten")
                 );
                 idx
             };
@@ -205,6 +206,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 commands.push(CreateCommand::new("in")
                     .kind(CommandType::ChatInput)
                     .dm_permission(false)
+                    .description("Bei Quantenwerwölfe mitspielen")
                 );
                 idx
             };
@@ -213,6 +215,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 commands.push(CreateCommand::new("night")
                     .kind(CommandType::ChatInput)
                     .dm_permission(false)
+                    .description("In Quantenwerwölfe die nächste Nacht starten")
                 );
                 idx
             };
@@ -221,6 +224,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 commands.push(CreateCommand::new("out")
                     .kind(CommandType::ChatInput)
                     .dm_permission(false)
+                    .description("Von Quantenwerwölfe aussteigen")
                 );
                 idx
             };
