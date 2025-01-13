@@ -10,5 +10,5 @@ path = "src/lib.rs"
 
 [dependencies]
 peter = { path = "../peter" }
-serenity = { git = "https://github.com/serenity-rs/serenity", branch = "current" }
-serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "current" }
+serenity = "0.12.4"
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "main" }

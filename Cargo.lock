@@ -435,7 +435,8 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "command_attr"
 version = "0.5.3"
-source = "git+https://github.com/serenity-rs/serenity?branch=current#25a4de8fd6f0bc13b875175cafba17a373268c26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fcc89439e1bb4e19050a9586a767781a3060000d2f3296fd2a40597ad9421c5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2535,7 +2536,8 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/serenity-rs/serenity?branch=current#25a4de8fd6f0bc13b875175cafba17a373268c26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d72ec4323681bf9a3cabe40fd080abc2435859b502a1b5aa9bf693f125bfa76"
 dependencies = [
  "arrayvec",
  "async-trait",
@@ -2572,7 +2574,7 @@ dependencies = [
 [[package]]
 name = "serenity-utils"
 version = "0.11.0"
-source = "git+https://github.com/fenhl/serenity-utils?branch=current#0218aa965af5268b491d782690660bbec1349b56"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#fcb4038a4fa9088e3c8f2bbc686659f477188a91"
 dependencies = [
  "chrono",
  "derive_more",
@@ -2589,7 +2591,7 @@ dependencies = [
 [[package]]
 name = "serenity-utils-derive"
 version = "0.11.0"
-source = "git+https://github.com/fenhl/serenity-utils?branch=current#0218aa965af5268b491d782690660bbec1349b56"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#fcb4038a4fa9088e3c8f2bbc686659f477188a91"
 dependencies = [
  "proc-macro2",
  "quote",
