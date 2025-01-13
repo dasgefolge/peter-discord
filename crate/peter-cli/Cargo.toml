@@ -12,7 +12,7 @@ path = "src/main.rs"
 async-trait = "0.1"
 chrono = "0.4"
 futures = "0.3"
-itertools = "0.13"
+itertools = "0.14"
 peter = { path = "../peter" }
 rand = "0.8"
 serde_json = "1"
