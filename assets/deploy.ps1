@@ -11,7 +11,7 @@ if (-not $?)
     throw 'Native Failure'
 }
 
-wsl -d ubuntu-m2 env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord cargo build --release --target=x86_64-unknown-linux-musl
+wsl -d ubuntu-m2 env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord /home/fenhl/.cargo/bin/cargo build --release --target=x86_64-unknown-linux-musl
 if (-not $?)
 {
     throw 'Native Failure'
@@ -29,25 +29,25 @@ if (-not $?)
     throw 'Native Failure'
 }
 
-ssh -d ubuntu-m2 gefolge.org sudo systemctl stop peter
+ssh gefolge.org sudo systemctl stop peter
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-ssh -d ubuntu-m2 gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/main git pull
+ssh gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/main git pull
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-scp -d ubuntu-m2 .\target\wsl\release\peter gefolge.org:bin/peter
+scp .\target\wsl\release\peter gefolge.org:bin/peter
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-ssh -d ubuntu-m2 gefolge.org sudo systemctl start peter
+ssh gefolge.org sudo systemctl start peter
 if (-not $?)
 {
     throw 'Native Failure'
