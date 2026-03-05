@@ -5,49 +5,49 @@ if (-not $?)
 }
 
 # copy the tree to the WSL file system to improve compile times
-wsl rsync --delete -av /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/ /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/ --exclude target
+wsl -d ubuntu-m2 rsync --delete -av /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/ /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/ --exclude target
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-wsl env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord cargo build --release --target=x86_64-unknown-linux-musl
+wsl -d ubuntu-m2 env -C /home/fenhl/wslgit/github.com/dasgefolge/peter-discord cargo build --release --target=x86_64-unknown-linux-musl
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-wsl mkdir -p /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release
+wsl -d ubuntu-m2 mkdir -p /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-wsl cp /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/target/x86_64-unknown-linux-musl/release/peter /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release/peter
+wsl -d ubuntu-m2 cp /home/fenhl/wslgit/github.com/dasgefolge/peter-discord/target/x86_64-unknown-linux-musl/release/peter /mnt/c/Users/fenhl/git/github.com/dasgefolge/peter-discord/stage/target/wsl/release/peter
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-ssh gefolge.org sudo systemctl stop peter
+ssh -d ubuntu-m2 gefolge.org sudo systemctl stop peter
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-ssh gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/main git pull
+ssh -d ubuntu-m2 gefolge.org env -C /opt/git/github.com/dasgefolge/peter-discord/main git pull
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-scp .\target\wsl\release\peter gefolge.org:bin/peter
+scp -d ubuntu-m2 .\target\wsl\release\peter gefolge.org:bin/peter
 if (-not $?)
 {
     throw 'Native Failure'
 }
 
-ssh gefolge.org sudo systemctl start peter
+ssh -d ubuntu-m2 gefolge.org sudo systemctl start peter
 if (-not $?)
 {
     throw 'Native Failure'

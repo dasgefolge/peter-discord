@@ -8,14 +8,14 @@ edition = "2021"
 futures = "0.3"
 itertools = "0.14"
 num-traits = "0.2"
-quantum-werewolf = { git = "https://github.com/dasgefolge/quantum-werewolf", branch = "main" }
+quantum-werewolf = { git = "https://github.com/dasgefolge/quantum-werewolf" }
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serenity = { version = "0.12.4", default-features = false, features = ["rustls_backend", "temp_cache"] }
-serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "main" }
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils" }
 sqlx = { version = "0.8", default-features = false, features = ["chrono", "json", "macros", "postgres", "runtime-tokio-rustls"] }
 thiserror = "2"
 tokio = { version = "1", features = ["process", "time"] }
-twitch_helix = { git = "https://github.com/fenhl/rust-twitch-helix", branch = "main" } #TODO publish to crates.io
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main", features = ["reqwest", "tungstenite021"] }
+twitch_helix = { git = "https://github.com/fenhl/rust-twitch-helix" } #TODO publish to crates.io
+wheel = { git = "https://github.com/fenhl/wheel", features = ["reqwest", "tungstenite021"] }

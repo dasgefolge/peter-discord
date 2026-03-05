@@ -17,7 +17,7 @@ peter = { path = "../peter" }
 rand = "0.8"
 serde_json = "1"
 serenity = { version = "0.12.4", default-features = false, features = ["rustls_backend", "temp_cache"] }
-serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "main" }
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils" }
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-wheel = { git = "https://github.com/fenhl/wheel", branch = "main" }
+wheel = { git = "https://github.com/fenhl/wheel" }
