@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository is archived since the code has been merged into the [gefolge.org](https://github.com/dasgefolge/gefolge.org) repository.
+
 **Peter** (named after a Gefolge meme) is a custom [Discord](https://discordapp.com/) bot for the [Gefolge](https://gefolge.org/).
 
 # Features
